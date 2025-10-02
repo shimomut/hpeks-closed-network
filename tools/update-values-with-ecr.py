@@ -96,103 +96,170 @@ def backup_file(file_path):
         return backup_path
     return None
 
+def insert_image_config_in_section(lines, section_name, config_lines, comment):
+    """Insert image configuration into existing YAML section with proper indentation"""
+    new_lines = []
+    in_section = False
+    section_found = False
+    config_inserted = False
+    section_indent = ""
+    
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        
+        # Check if this is the target section
+        if line.strip() == f"{section_name}:":
+            new_lines.append(line)
+            in_section = True
+            section_found = True
+            # Capture the indentation level of the section
+            section_indent = line[:len(line) - len(line.lstrip())]
+            i += 1
+            continue
+        
+        # If we're in the target section
+        if in_section:
+            # Check if we're leaving the section (next top-level key or end of file)
+            current_indent = line[:len(line) - len(line.lstrip())]
+            
+            # If this line has same or less indentation than section and is not empty/comment
+            if (line.strip() and 
+                not line.strip().startswith('#') and 
+                len(current_indent) <= len(section_indent)):
+                
+                # Insert config before leaving the section
+                if not config_inserted:
+                    # Add comment with proper indentation
+                    new_lines.append(f"{section_indent}  # {comment}")
+                    # Add config lines with proper indentation
+                    for config_line in config_lines:
+                        new_lines.append(f"{section_indent}  {config_line}")
+                    config_inserted = True
+                in_section = False
+            
+            # Check if this line already contains image config we want to replace
+            elif ('image:' in line or 'mpiOperator:' in line or 'hmaimage:' in line):
+                # Skip existing image config and replace with new one
+                if not config_inserted:
+                    # Add comment with proper indentation
+                    new_lines.append(f"{section_indent}  # {comment}")
+                    # Add config lines with proper indentation
+                    for config_line in config_lines:
+                        new_lines.append(f"{section_indent}  {config_line}")
+                    config_inserted = True
+                
+                # Skip lines until we're out of the image config block
+                while i < len(lines) and (lines[i].strip().startswith(('image:', 'repository:', 'mpiOperator:', 'hmaimage:')) or 
+                                         (lines[i].strip() and len(lines[i]) - len(lines[i].lstrip()) > len(section_indent) + 2)):
+                    i += 1
+                continue
+        
+        new_lines.append(line)
+        i += 1
+    
+    # If we were still in the section at the end, add config
+    if in_section and not config_inserted:
+        # Add comment with proper indentation
+        new_lines.append(f"{section_indent}  # {comment}")
+        # Add config lines with proper indentation
+        for config_line in config_lines:
+            new_lines.append(f"{section_indent}  {config_line}")
+    
+    # If section wasn't found, add it at the end
+    if not section_found:
+        new_lines.append("")
+        new_lines.append(f"# Section added by update-values-with-ecr.py")
+        new_lines.append(f"{section_name}:")
+        new_lines.append(f"  # {comment}")
+        for config_line in config_lines:
+            new_lines.append(f"  {config_line}")
+    
+    return new_lines
+
 def update_values_yaml(values_file, images):
     """Update the values.yaml file with ECR image overrides"""
     if not os.path.exists(values_file):
         print_colored(f"Error: Values file not found: {values_file}", Colors.RED)
         return False
     
-    # Initialize YAML parser with comment preservation
-    yaml = YAML()
-    yaml.preserve_quotes = True
-    yaml.width = 4096  # Prevent line wrapping
-    
-    # Load the YAML file
+    # Read the file as text to preserve formatting
     with open(values_file, 'r') as f:
-        data = yaml.load(f)
+        lines = f.readlines()
     
-    if data is None:
-        data = {}
+    # Remove trailing newlines from lines for easier processing
+    lines = [line.rstrip('\n') for line in lines]
     
     updated_images = []
     
     # Update NVIDIA device plugin
     if 'nvidia-k8s-device-plugin' in images:
         image_info = images['nvidia-k8s-device-plugin']
-        if 'nvidia-device-plugin' not in data:
-            data['nvidia-device-plugin'] = {}
-        
-        # Add comment and image config
-        data['nvidia-device-plugin']['image'] = {
-            'repository': image_info['repo']
-        }
-        
-        # Add comment before the image section
-        if hasattr(data['nvidia-device-plugin'], 'yaml_set_comment_before_after_key'):
-            data['nvidia-device-plugin'].yaml_set_comment_before_after_key(
-                'image', before='ECR override for air-gapped environment'
-            )
-        
+        config_lines = [
+            "image:",
+            "  repository: " + image_info['repo']
+        ]
+        lines = insert_image_config_in_section(
+            lines, 
+            "nvidia-device-plugin", 
+            config_lines,
+            "ECR override for air-gapped environment"
+        )
         updated_images.append(f"NVIDIA Device Plugin: {image_info['full']}")
         print_colored(f"✓ Added NVIDIA device plugin override: {image_info['full']}", Colors.GREEN)
     
     # Update AWS EFA device plugin
     if 'aws-efa-k8s-device-plugin' in images:
         image_info = images['aws-efa-k8s-device-plugin']
-        if 'aws-efa-k8s-device-plugin' not in data:
-            data['aws-efa-k8s-device-plugin'] = {}
-        
-        data['aws-efa-k8s-device-plugin']['image'] = {
-            'repository': image_info['repo']
-        }
-        
-        if hasattr(data['aws-efa-k8s-device-plugin'], 'yaml_set_comment_before_after_key'):
-            data['aws-efa-k8s-device-plugin'].yaml_set_comment_before_after_key(
-                'image', before='ECR override for air-gapped environment'
-            )
-        
+        config_lines = [
+            "image:",
+            "  repository: " + image_info['repo']
+        ]
+        lines = insert_image_config_in_section(
+            lines, 
+            "aws-efa-k8s-device-plugin", 
+            config_lines,
+            "ECR override for air-gapped environment"
+        )
         updated_images.append(f"AWS EFA Device Plugin: {image_info['full']}")
         print_colored(f"✓ Added AWS EFA device plugin override: {image_info['full']}", Colors.GREEN)
     
     # Update MPI operator
     if 'mpi-operator' in images:
         image_info = images['mpi-operator']
-        if 'mpi-operator' not in data:
-            data['mpi-operator'] = {}
-        
-        data['mpi-operator']['mpiOperator'] = {
-            'image': {
-                'repository': image_info['repo']
-            }
-        }
-        
-        if hasattr(data['mpi-operator'], 'yaml_set_comment_before_after_key'):
-            data['mpi-operator'].yaml_set_comment_before_after_key(
-                'mpiOperator', before='ECR override for air-gapped environment'
-            )
-        
+        config_lines = [
+            "mpiOperator:",
+            "  image:",
+            "    repository: " + image_info['repo']
+        ]
+        lines = insert_image_config_in_section(
+            lines, 
+            "mpi-operator", 
+            config_lines,
+            "ECR override for air-gapped environment"
+        )
         updated_images.append(f"MPI Operator: {image_info['full']}")
         print_colored(f"✓ Added MPI operator override: {image_info['full']}", Colors.GREEN)
     
     # Update health monitoring agent
     if 'hyperpod-health-monitoring-agent' in images:
         image_info = images['hyperpod-health-monitoring-agent']
-        if 'health-monitoring-agent' not in data:
-            data['health-monitoring-agent'] = {}
-        
-        data['health-monitoring-agent']['hmaimage'] = image_info['full']
-        
-        if hasattr(data['health-monitoring-agent'], 'yaml_set_comment_before_after_key'):
-            data['health-monitoring-agent'].yaml_set_comment_before_after_key(
-                'hmaimage', before='ECR override for air-gapped environment'
-            )
-        
+        config_lines = [
+            f'hmaimage: "{image_info["full"]}"'
+        ]
+        lines = insert_image_config_in_section(
+            lines, 
+            "health-monitoring-agent", 
+            config_lines,
+            "ECR override for air-gapped environment"
+        )
         updated_images.append(f"Health Monitoring Agent: {image_info['full']}")
         print_colored(f"✓ Added health monitoring agent override: {image_info['full']}", Colors.GREEN)
     
-    # Write the updated YAML back to file
+    # Write the updated content back to file
     with open(values_file, 'w') as f:
-        yaml.dump(data, f)
+        for line in lines:
+            f.write(line + '\n')
     
     print_colored("✓ Updated main values.yaml file with ECR image overrides", Colors.GREEN)
     return updated_images
