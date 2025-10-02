@@ -35,6 +35,18 @@ cat sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/charts/mpi-operator/valu
 cat sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/charts/health-monitoring-agent/values.yaml
 ```
 
+### 3a. Special Case: Health Monitoring Agent
+For the health monitoring agent, refer to the comprehensive documentation:
+```bash
+# Check the main readme for detailed image information
+cat sagemaker-hyperpod-cli/helm_chart/readme.md
+```
+The readme.md contains:
+- Complete list of supported regions and their ECR URIs
+- Specific image tag: `1.0.819.0_1.0.267.0`
+- Account ID mapping for each AWS region
+- Dynamic region detection behavior
+
 ### 4. Extract Image Information
 Look for the `image` section in `values.yaml` files:
 ```yaml
@@ -62,6 +74,10 @@ image:
 - May reference external images or use custom build processes
 - Check for dynamic URI construction based on region or other parameters
 - Look for default values and override mechanisms
+- **Health Monitoring Agent**: Always refer to `sagemaker-hyperpod-cli/helm_chart/readme.md` for:
+  - Complete regional ECR URI mappings
+  - Specific image tags (e.g., `1.0.819.0_1.0.267.0`)
+  - Account ID per region (e.g., us-west-2: `905418368575`)
 
 ## Verification Commands
 
@@ -82,6 +98,17 @@ When updating `tools/ecr-images.conf`:
 1. Follow the methodology above to get accurate values
 2. Include comments showing the source chart and version
 3. Note any special considerations (dynamic URIs, region dependencies, etc.)
-4. Test the configuration with the ECR copy scripts
+4. **For health monitoring agent**: Always check `sagemaker-hyperpod-cli/helm_chart/readme.md` for:
+   - Latest image tag information
+   - Regional ECR URI mappings
+   - Account ID per AWS region
+5. Test the configuration with the ECR copy scripts
+
+## Special Documentation Sources
+
+### Health Monitoring Agent
+- **Primary source**: `sagemaker-hyperpod-cli/helm_chart/readme.md`
+- **Contains**: Complete regional ECR URI list with account IDs and image tags
+- **Example**: `905418368575.dkr.ecr.us-west-2.amazonaws.com/hyperpod-health-monitoring-agent:1.0.819.0_1.0.267.0`
 
 This ensures that the ECR image copying process uses the correct, verified image references that match the actual Helm chart deployments.
