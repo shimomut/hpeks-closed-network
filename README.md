@@ -24,7 +24,7 @@ This project customizes Terraform modules and Helm charts to deploy Amazon SageM
 │   ├── ecr-images.conf     # ECR image configuration
 │   ├── copy-images-to-ecr.sh # ECR image copy script
 │   ├── list-ecr-repos.sh   # ECR repository listing script
-│   └── update-values-with-ecr.sh # Update top-level values.yaml with ECR overrides
+│   └── update-values-with-ecr.py # Update top-level values.yaml with ECR overrides
 ├── Makefile               # Utility commands and automation
 ├── LICENSE                # MIT License
 └── README.md             # This file
@@ -38,12 +38,16 @@ This project customizes Terraform modules and Helm charts to deploy Amazon SageM
 - Terraform installed
 - Helm installed
 - Git with submodule support
+- Python 3 with `ruamel.yaml` package (for ECR values update script)
 
 ### Initial Setup
 ```bash
 # Clone repository with submodules
 git clone --recursive <repository-url>
 cd hpeks-closed-network
+
+# Install Python dependencies for ECR values update script
+python3 -m pip install ruamel.yaml
 
 # Initialize development environment
 make dev-setup
