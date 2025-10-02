@@ -1,0 +1,8 @@
+[submodule "awsome-distributed-training"]
+	path = awsome-distributed-training
+	url = https://github.com/shimomut/awsome-distributed-training.git
+	branch = closed-network-20251001
+[submodule "sagemaker-hyperpod-cli"]
+	path = sagemaker-hyperpod-cli
+	url = https://github.com/shimomut/sagemaker-hyperpod-cli.git
+	branch = closed-network-20251001
