@@ -18,7 +18,8 @@ This project customizes Terraform and Helm configurations for HyperPod EKS deplo
 ├── tools/                  # Utility scripts and configurations
 │   ├── ecr-images.conf     # ECR image configuration
 │   ├── copy-images-to-ecr.sh # ECR image copy script
-│   └── list-ecr-repos.sh   # ECR repository listing script
+│   ├── list-ecr-repos.sh   # ECR repository listing script
+│   └── update-values-with-ecr.sh # Update top-level values.yaml with ECR overrides
 ├── Makefile               # Utility commands and automation
 ├── LICENSE                # MIT License
 └── README.md             # Single source of truth for documentation

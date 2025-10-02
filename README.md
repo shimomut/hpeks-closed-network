@@ -23,7 +23,8 @@ This project customizes Terraform modules and Helm charts to deploy Amazon SageM
 ├── tools/                  # Utility scripts
 │   ├── ecr-images.conf     # ECR image configuration
 │   ├── copy-images-to-ecr.sh # ECR image copy script
-│   └── list-ecr-repos.sh   # ECR repository listing script
+│   ├── list-ecr-repos.sh   # ECR repository listing script
+│   └── update-values-with-ecr.sh # Update top-level values.yaml with ECR overrides
 ├── Makefile               # Utility commands and automation
 ├── LICENSE                # MIT License
 └── README.md             # This file
@@ -84,6 +85,32 @@ The script will:
 3. Pull images from public registries
 4. Tag and push images to your private ECR
 5. Preserve both `latest` and original version tags
+
+#### Update Helm values with ECR references
+After copying images to ECR, update the Helm chart values to use your private ECR repositories:
+```bash
+# Update values.yaml files with ECR image references (default: us-east-2, auto-detect account)
+make update-values-with-ecr
+
+# With custom parameters
+make update-values-with-ecr REGION=us-west-2 ACCOUNT_ID=123456789012
+```
+
+This command will:
+1. Parse the ECR image configuration from `tools/ecr-images.conf`
+2. Add image repository overrides to the top-level values.yaml file
+3. Create backup copies of the original values file
+4. Configure the correct ECR URLs for your target region and account
+
+#### Complete ECR setup (recommended)
+For a streamlined workflow, use the combined command that copies images and updates values:
+```bash
+# Copy images to ECR and update Helm values in one command
+make setup-ecr-images
+
+# With custom parameters
+make setup-ecr-images REGION=us-west-2 ACCOUNT_ID=123456789012
+```
 
 ### Customizing Images
 Edit `tools/ecr-images.conf` to modify which images are copied:

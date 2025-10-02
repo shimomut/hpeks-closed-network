@@ -27,8 +27,10 @@ make apply         # Deploy infrastructure
 make destroy       # Tear down infrastructure
 
 # ECR image management (for closed networks)
-make list-ecr-repos      # Preview ECR repositories
-make copy-images-to-ecr  # Copy container images to ECR
+make list-ecr-repos         # Preview ECR repositories
+make copy-images-to-ecr     # Copy container images to ECR
+make update-values-with-ecr # Update top-level values.yaml with ECR overrides
+make setup-ecr-images       # Complete ECR setup (copy + update values)
 
 # Terraform operations
 terraform init

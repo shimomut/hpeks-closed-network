@@ -59,6 +59,13 @@ copy-images-to-ecr: ## Copy container images to ECR repositories (usage: make co
 	@echo "Copying container images to ECR..."
 	@./tools/copy-images-to-ecr.sh $(REGION) $(ACCOUNT_ID)
 
+update-values-with-ecr: ## Update Helm values.yaml files with ECR image references (usage: make update-values-with-ecr [REGION=us-east-2] [ACCOUNT_ID=auto])
+	@echo "Updating Helm values.yaml files with ECR image references..."
+	@./tools/update-values-with-ecr.sh $(REGION) $(ACCOUNT_ID)
+
+setup-ecr-images: copy-images-to-ecr update-values-with-ecr ## Copy images to ECR and update values.yaml files (usage: make setup-ecr-images [REGION=us-east-2] [ACCOUNT_ID=auto])
+	@echo "✓ ECR setup complete - images copied and values.yaml files updated"
+
 # Development utilities
 dev-setup: submodule-update copy-helm-repo ## Setup development environment
 	@echo "✓ Development environment ready"
