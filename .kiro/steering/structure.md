@@ -15,6 +15,10 @@ This project customizes Terraform and Helm configurations for HyperPod EKS deplo
 │   └── 1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/
 ├── sagemaker-hyperpod-cli/ # Submodule (only specific paths modified)
 │   └── helm_chart/HyperPodHelmChart/
+├── tools/                  # Utility scripts and configurations
+│   ├── ecr-images.conf     # ECR image configuration
+│   ├── copy-images-to-ecr.sh # ECR image copy script
+│   └── list-ecr-repos.sh   # ECR repository listing script
 ├── Makefile               # Utility commands and automation
 ├── LICENSE                # MIT License
 └── README.md             # Single source of truth for documentation
@@ -36,6 +40,7 @@ This project customizes Terraform and Helm configurations for HyperPod EKS deplo
 
 ## Conventions
 - Use Makefile for common operations and utility commands
+- Place utility scripts in the `tools/` directory
 - Follow Terraform best practices for module structure
 - Follow Helm chart conventions for Kubernetes deployments
 - Use descriptive commit messages when modifying submodule files

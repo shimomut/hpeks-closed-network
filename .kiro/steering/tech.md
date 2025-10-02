@@ -26,6 +26,10 @@ make plan          # Terraform plan
 make apply         # Deploy infrastructure
 make destroy       # Tear down infrastructure
 
+# ECR image management (for closed networks)
+make list-ecr-repos      # Preview ECR repositories
+make copy-images-to-ecr  # Copy container images to ECR
+
 # Terraform operations
 terraform init
 terraform plan
@@ -42,3 +46,5 @@ helm install release-name ./path/to/chart
 - **Terraform files**: `.tf`, `.tfvars`, `.tfstate`
 - **Helm charts**: `Chart.yaml`, `values.yaml`, template files
 - **Makefile**: Utility commands and automation
+- **Shell scripts**: `.sh` files in `tools/` directory for utilities
+- **Configuration files**: `.conf` files for tool configurations

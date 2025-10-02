@@ -1,7 +1,7 @@
 # HyperPod EKS Closed Network Makefile
 # Utility commands for development and deployment
 
-.PHONY: help init plan apply destroy copy-helm-repo clean-helm-repo submodule-update
+.PHONY: help init plan apply destroy copy-helm-repo clean-helm-repo submodule-update copy-images-to-ecr list-ecr-repos
 
 # Default target
 help: ## Show this help message
@@ -50,6 +50,14 @@ helm-lint: ## Lint the Helm chart
 helm-template: ## Generate Helm templates
 	@echo "Generating Helm templates..."
 	@helm template sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/
+
+# ECR operations
+list-ecr-repos: ## List ECR repositories that will be created (usage: make list-ecr-repos [REGION=us-east-2] [ACCOUNT_ID=auto])
+	@./tools/list-ecr-repos.sh $(REGION) $(ACCOUNT_ID)
+
+copy-images-to-ecr: ## Copy container images to ECR repositories (usage: make copy-images-to-ecr [REGION=us-east-2] [ACCOUNT_ID=auto])
+	@echo "Copying container images to ECR..."
+	@./tools/copy-images-to-ecr.sh $(REGION) $(ACCOUNT_ID)
 
 # Development utilities
 dev-setup: submodule-update copy-helm-repo ## Setup development environment
