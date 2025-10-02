@@ -15,20 +15,7 @@ REGION="${1:-$DEFAULT_REGION}"
 ACCOUNT_ID="${2:-$(aws sts get-caller-identity --query Account --output text)}"
 
 # Load images from configuration file
-declare -A IMAGES
-if [[ -f "$CONFIG_FILE" ]]; then
-    while IFS='=' read -r repo_name source_image; do
-        # Skip comments and empty lines
-        [[ "$repo_name" =~ ^[[:space:]]*# ]] && continue
-        [[ -z "$repo_name" ]] && continue
-        
-        # Remove leading/trailing whitespace
-        repo_name=$(echo "$repo_name" | xargs)
-        source_image=$(echo "$source_image" | xargs)
-        
-        IMAGES["$repo_name"]="$source_image"
-    done < "$CONFIG_FILE"
-else
+if [[ ! -f "$CONFIG_FILE" ]]; then
     echo "❌ Configuration file not found: $CONFIG_FILE"
     exit 1
 fi
@@ -42,12 +29,19 @@ echo ""
 echo "🔐 Logging into ECR..."
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
 
-# Login to NVIDIA registry for nvcr.io images
-echo "🔐 Logging into NVIDIA Container Registry..."
-docker login nvcr.io
+# Note: NVIDIA Container Registry (nvcr.io) allows anonymous access for public images
+# No authentication required for nvidia/k8s-device-plugin and other public images
 
-for repo_name in "${!IMAGES[@]}"; do
-    source_image="${IMAGES[$repo_name]}"
+# Process each line in the config file
+while IFS='=' read -r repo_name source_image; do
+    # Skip comments and empty lines
+    [[ "$repo_name" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "$repo_name" ]] && continue
+    
+    # Remove leading/trailing whitespace
+    repo_name=$(echo "$repo_name" | xargs)
+    source_image=$(echo "$source_image" | xargs)
+    
     target_repo="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$repo_name"
     
     echo ""
@@ -94,12 +88,7 @@ for repo_name in "${!IMAGES[@]}"; do
     fi
     
     echo "  ✅ Successfully copied $repo_name"
-done
+done < "$CONFIG_FILE"
 
 echo ""
 echo "🎉 All images successfully copied to ECR!"
-echo ""
-echo "📋 Summary of created repositories:"
-for repo_name in "${!IMAGES[@]}"; do
-    echo "  • $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$repo_name"
-done
