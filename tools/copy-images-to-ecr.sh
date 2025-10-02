@@ -25,9 +25,16 @@ echo "Region: $REGION"
 echo "Account ID: $ACCOUNT_ID"
 echo ""
 
-# Login to ECR
-echo "🔐 Logging into ECR..."
+# Login to ECR (target account)
+echo "🔐 Logging into target ECR..."
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
+
+# Login to AWS public ECR registries for source images
+echo "🔐 Logging into AWS ECR registries for source images..."
+# Login to us-west-2 for EFA device plugin
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 602401143452.dkr.ecr.us-west-2.amazonaws.com
+# Login to us-west-2 for HyperPod health monitoring agent  
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 905418368575.dkr.ecr.us-west-2.amazonaws.com
 
 # Note: NVIDIA Container Registry (nvcr.io) allows anonymous access for public images
 # No authentication required for nvidia/k8s-device-plugin and other public images
