@@ -51,18 +51,17 @@ helm-template: ## Generate Helm templates
 	@echo "Generating Helm templates..."
 	@helm template sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/
 
-helm-install: ## Install Helm chart with validation (usage: make helm-install [RELEASE=hyperpod-test] [NAMESPACE=default])
-	@RELEASE_NAME="hyperpod-test"; \
+helm-install: ## Install Helm chart with validation (usage: make helm-install [RELEASE=hyperpod-dependencies] [NAMESPACE=kube-system])
+	@RELEASE_NAME="hyperpod-dependencies"; \
 	if [ -n "$(RELEASE)" ]; then \
 		RELEASE_NAME="$(RELEASE)"; \
 	fi; \
-	NAMESPACE_FLAG=""; \
+	NAMESPACE_NAME="kube-system"; \
 	if [ -n "$(NAMESPACE)" ]; then \
-		NAMESPACE_FLAG="-n $(NAMESPACE)"; \
-		echo "Installing Helm chart for release: $$$RELEASE_NAME in namespace: $(NAMESPACE)..."; \
-	else \
-		echo "Installing Helm chart for release: $$$RELEASE_NAME in default namespace..."; \
+		NAMESPACE_NAME="$(NAMESPACE)"; \
 	fi; \
+	NAMESPACE_FLAG="-n $$NAMESPACE_NAME"; \
+	echo "Installing Helm chart for release: $$RELEASE_NAME in namespace: $$NAMESPACE_NAME..."; \
 	echo "1. Updating chart dependencies..."; \
 	helm dependency update sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/; \
 	echo "2. Linting chart..."; \
@@ -71,36 +70,34 @@ helm-install: ## Install Helm chart with validation (usage: make helm-install [R
 	helm template $$RELEASE_NAME sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/ $$NAMESPACE_FLAG --validate > /dev/null; \
 	echo "4. Installing Helm chart..."; \
 	helm install $$RELEASE_NAME sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/ $$NAMESPACE_FLAG ; \
-	echo "✓ Helm chart installed successfully for release: $$RELEASE_NAME"
+	echo "✓ Helm chart installed successfully for release: $$RELEASE_NAME in namespace: $$NAMESPACE_NAME"
 
-helm-list-releases: ## List Helm releases (usage: make helm-list-releases [NAMESPACE=default])
-	@NAMESPACE_FLAG=""; \
+helm-list-releases: ## List Helm releases (usage: make helm-list-releases [NAMESPACE=kube-system])
+	@NAMESPACE_NAME="kube-system"; \
 	if [ -n "$(NAMESPACE)" ]; then \
-		NAMESPACE_FLAG="-n $(NAMESPACE)"; \
-		echo "Listing Helm releases in namespace: $(NAMESPACE)..."; \
-	else \
-		echo "Listing Helm releases in default namespace..."; \
+		NAMESPACE_NAME="$(NAMESPACE)"; \
 	fi; \
+	NAMESPACE_FLAG="-n $$NAMESPACE_NAME"; \
+	echo "Listing Helm releases in namespace: $$NAMESPACE_NAME..."; \
 	echo "Command: helm list $$NAMESPACE_FLAG"; \
 	helm list $$NAMESPACE_FLAG
 
-helm-uninstall: ## Uninstall Helm release (usage: make helm-uninstall RELEASE=hyperpod-release [NAMESPACE=default])
-	@if [ -z "$(RELEASE)" ]; then \
-		echo "Error: RELEASE parameter is required. Usage: make helm-uninstall RELEASE=hyperpod-release [NAMESPACE=default]"; \
-		exit 1; \
-	fi
-	@NAMESPACE_FLAG=""; \
+helm-uninstall: ## Uninstall Helm release (usage: make helm-uninstall [RELEASE=hyperpod-dependencies] [NAMESPACE=kube-system])
+	@RELEASE_NAME="hyperpod-dependencies"; \
+	if [ -n "$(RELEASE)" ]; then \
+		RELEASE_NAME="$(RELEASE)"; \
+	fi; \
+	NAMESPACE_NAME="kube-system"; \
 	if [ -n "$(NAMESPACE)" ]; then \
-		NAMESPACE_FLAG="-n $(NAMESPACE)"; \
-		echo "Uninstalling Helm release: $(RELEASE) from namespace: $(NAMESPACE)..."; \
+		NAMESPACE_NAME="$(NAMESPACE)"; \
+	fi; \
+	NAMESPACE_FLAG="-n $$NAMESPACE_NAME"; \
+	echo "Uninstalling Helm release: $$RELEASE_NAME from namespace: $$NAMESPACE_NAME..."; \
+	if helm list -q $$NAMESPACE_FLAG | grep -q "^$$RELEASE_NAME$$"; then \
+		helm uninstall $$RELEASE_NAME $$NAMESPACE_FLAG; \
+		echo "✓ Successfully uninstalled release: $$RELEASE_NAME from namespace: $$NAMESPACE_NAME"; \
 	else \
-		echo "Uninstalling Helm release: $(RELEASE) from default namespace..."; \
-	fi;
-	@if helm list -q $$NAMESPACE_FLAG | grep -q "^$(RELEASE)$$"; then \
-		helm uninstall $(RELEASE) $$NAMESPACE_FLAG; \
-		echo "✓ Successfully uninstalled release: $(RELEASE)"; \
-	else \
-		echo "Release '$(RELEASE)' not found. Available releases:"; \
+		echo "Release '$$RELEASE_NAME' not found in namespace '$$NAMESPACE_NAME'. Available releases:"; \
 		helm list $$NAMESPACE_FLAG; \
 	fi
 
