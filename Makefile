@@ -68,9 +68,9 @@ helm-install: ## Install Helm chart with validation (usage: make helm-install [R
 	echo "2. Linting chart..."; \
 	helm lint sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/; \
 	echo "3. Validating templates..."; \
-	helm template $$RELEASE_NAME sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/ $$$NAMESPACE_FLAG --validate > /dev/null; \
+	helm template $$RELEASE_NAME sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/ $$NAMESPACE_FLAG --validate > /dev/null; \
 	echo "4. Installing Helm chart..."; \
-	helm install $$RELEASE_NAME sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/ $$$NAMESPACE_FLAG ; \
+	helm install $$RELEASE_NAME sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/ $$NAMESPACE_FLAG ; \
 	echo "✓ Helm chart installed successfully for release: $$RELEASE_NAME"
 
 helm-list-releases: ## List Helm releases (usage: make helm-list-releases [NAMESPACE=default])
@@ -81,8 +81,8 @@ helm-list-releases: ## List Helm releases (usage: make helm-list-releases [NAMES
 	else \
 		echo "Listing Helm releases in default namespace..."; \
 	fi; \
-	echo "Command: helm list $$$NAMESPACE_FLAG"; \
-	helm list $$$NAMESPACE_FLAG
+	echo "Command: helm list $$NAMESPACE_FLAG"; \
+	helm list $$NAMESPACE_FLAG
 
 helm-uninstall: ## Uninstall Helm release (usage: make helm-uninstall RELEASE=hyperpod-release [NAMESPACE=default])
 	@if [ -z "$(RELEASE)" ]; then \
@@ -96,12 +96,12 @@ helm-uninstall: ## Uninstall Helm release (usage: make helm-uninstall RELEASE=hy
 	else \
 		echo "Uninstalling Helm release: $(RELEASE) from default namespace..."; \
 	fi;
-	@if helm list -q $$$NAMESPACE_FLAG | grep -q "^$(RELEASE)$$"; then \
-		helm uninstall $(RELEASE) $$$NAMESPACE_FLAG; \
+	@if helm list -q $$NAMESPACE_FLAG | grep -q "^$(RELEASE)$$"; then \
+		helm uninstall $(RELEASE) $$NAMESPACE_FLAG; \
 		echo "✓ Successfully uninstalled release: $(RELEASE)"; \
 	else \
 		echo "Release '$(RELEASE)' not found. Available releases:"; \
-		helm list $$$NAMESPACE_FLAG; \
+		helm list $$NAMESPACE_FLAG; \
 	fi
 
 # ECR operations
