@@ -79,7 +79,18 @@ def update_ecr_urls(images, region, account_id):
         # Convert all images to ECR format
         if ecr_pattern.search(repo):
             # Already an ECR URL, update to target account/region
-            new_repo = ecr_pattern.sub(f"{account_id}.dkr.ecr.{region}.amazonaws.com", repo)
+            # Extract the image name from the ECR URL
+            ecr_parts = repo.split('/')
+            if len(ecr_parts) >= 2:
+                image_path = '/'.join(ecr_parts[1:])  # Everything after the ECR domain
+                # Special case for AWS EKS images - remove 'eks/' prefix
+                if image_path.startswith('eks/'):
+                    image_name = image_path[4:]  # Remove 'eks/' prefix
+                else:
+                    image_name = image_path
+            else:
+                image_name = ecr_parts[-1]
+            new_repo = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{image_name}"
         else:
             # Convert non-ECR URL to ECR format
             # Extract the image name from the original repository
