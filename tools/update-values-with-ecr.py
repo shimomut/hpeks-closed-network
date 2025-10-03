@@ -122,6 +122,7 @@ def insert_image_config_in_section(lines, section_name, config_lines, comment):
     section_found = False
     config_inserted = False
     section_indent = ""
+    skip_until_next_section = False
     
     i = 0
     while i < len(lines):
@@ -132,13 +133,14 @@ def insert_image_config_in_section(lines, section_name, config_lines, comment):
             new_lines.append(line)
             in_section = True
             section_found = True
+            skip_until_next_section = False
             # Capture the indentation level of the section
             section_indent = line[:len(line) - len(line.lstrip())]
             i += 1
             continue
         
         # If we're in the target section
-        if in_section:
+        if in_section and not skip_until_next_section:
             # Check if we're leaving the section (next top-level key or end of file)
             current_indent = line[:len(line) - len(line.lstrip())]
             
@@ -147,41 +149,58 @@ def insert_image_config_in_section(lines, section_name, config_lines, comment):
                 not line.strip().startswith('#') and 
                 len(current_indent) <= len(section_indent)):
                 
-                # Insert config before leaving the section
+                # Insert config before leaving the section if not already done
                 if not config_inserted:
-                    # Add comment with proper indentation
                     new_lines.append(f"{section_indent}  # {comment}")
-                    # Add config lines with proper indentation
                     for config_line in config_lines:
                         new_lines.append(f"{section_indent}  {config_line}")
                     config_inserted = True
                 in_section = False
             
-            # Check if this line already contains image config we want to replace
-            elif ('image:' in line or 'mpiOperator:' in line or 'hmaimage:' in line):
-                # Skip existing image config and replace with new one
+            # Check if this line is our ECR comment - skip duplicates but mark as inserted
+            elif line.strip() == f"# {comment}":
                 if not config_inserted:
-                    # Add comment with proper indentation
-                    new_lines.append(f"{section_indent}  # {comment}")
+                    new_lines.append(line)
                     # Add config lines with proper indentation
                     for config_line in config_lines:
                         new_lines.append(f"{section_indent}  {config_line}")
                     config_inserted = True
+                    skip_until_next_section = True
+                i += 1
+                continue
+            
+            # Check if this line contains image config we want to replace
+            elif (line.strip().startswith(('image:', 'mpiOperator:', 'hmaimage:')) and 
+                  len(current_indent) == len(section_indent) + 2):
                 
-                # Skip lines until we're out of the image config block
-                while i < len(lines) and (lines[i].strip().startswith(('image:', 'repository:', 'mpiOperator:', 'hmaimage:')) or 
-                                         (lines[i].strip() and len(lines[i]) - len(lines[i].lstrip()) > len(section_indent) + 2)):
-                    i += 1
+                if not config_inserted:
+                    # Add comment and config
+                    new_lines.append(f"{section_indent}  # {comment}")
+                    for config_line in config_lines:
+                        new_lines.append(f"{section_indent}  {config_line}")
+                    config_inserted = True
+                    skip_until_next_section = True
+                i += 1
                 continue
         
-        new_lines.append(line)
+        # If we're skipping until next section, check if we've reached it
+        if skip_until_next_section:
+            current_indent = line[:len(line) - len(line.lstrip())]
+            if (line.strip() and 
+                not line.strip().startswith('#') and 
+                len(current_indent) <= len(section_indent)):
+                skip_until_next_section = False
+                in_section = False
+        
+        # Only add the line if we're not skipping
+        if not skip_until_next_section:
+            new_lines.append(line)
+        
         i += 1
     
     # If we were still in the section at the end, add config
     if in_section and not config_inserted:
-        # Add comment with proper indentation
         new_lines.append(f"{section_indent}  # {comment}")
-        # Add config lines with proper indentation
         for config_line in config_lines:
             new_lines.append(f"{section_indent}  {config_line}")
     
