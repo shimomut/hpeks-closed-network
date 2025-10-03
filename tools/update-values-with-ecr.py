@@ -69,18 +69,37 @@ def parse_ecr_config(config_file):
     return images
 
 def update_ecr_urls(images, region, account_id):
-    """Update ECR repository URLs with target account and region"""
+    """Update repository URLs to use target ECR account and region"""
     ecr_pattern = re.compile(r'\d{12}\.dkr\.ecr\.[^.]+\.amazonaws\.com')
     
     for key, image_info in images.items():
         repo = image_info['repo']
         tag = image_info['tag']
         
-        # Only update ECR URLs
+        # Convert all images to ECR format
         if ecr_pattern.search(repo):
+            # Already an ECR URL, update to target account/region
             new_repo = ecr_pattern.sub(f"{account_id}.dkr.ecr.{region}.amazonaws.com", repo)
-            images[key]['repo'] = new_repo
-            images[key]['full'] = f"{new_repo}:{tag}"
+        else:
+            # Convert non-ECR URL to ECR format
+            # Extract the image name from the original repository
+            if '/' in repo:
+                # For repos like "mpioperator/mpi-operator" or "nvcr.io/nvidia/k8s-device-plugin"
+                image_name = repo.split('/')[-1]  # Get the last part
+                if repo.startswith('nvcr.io/nvidia/'):
+                    # Special case for NVIDIA images
+                    image_name = f"nvidia-{image_name}"
+                elif repo.startswith('mpioperator/'):
+                    # Special case for MPI operator
+                    image_name = "mpi-operator"
+            else:
+                image_name = repo
+            
+            # Create ECR repository name
+            new_repo = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{image_name}"
+        
+        images[key]['repo'] = new_repo
+        images[key]['full'] = f"{new_repo}:{tag}"
     
     return images
 
@@ -312,7 +331,7 @@ Configuration:
     parser.add_argument(
         'region',
         nargs='?',
-        default='us-west-2',
+        default='us-east-2',
         help='AWS region for ECR repositories (default: us-west-2)'
     )
     
