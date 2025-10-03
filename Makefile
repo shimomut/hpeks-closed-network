@@ -1,7 +1,7 @@
 # HyperPod EKS Closed Network Makefile
 # Utility commands for development and deployment
 
-.PHONY: help init plan apply destroy copy-helm-repo clean-helm-repo submodule-update copy-images-to-ecr list-ecr-repos
+.PHONY: help init plan apply destroy copy-helm-repo clean-helm-repo submodule-update copy-images-to-ecr list-ecr-repos helm-lint helm-template helm-install helm-list-releases helm-uninstall
 
 # Default target
 help: ## Show this help message
@@ -50,6 +50,59 @@ helm-lint: ## Lint the Helm chart
 helm-template: ## Generate Helm templates
 	@echo "Generating Helm templates..."
 	@helm template sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/
+
+helm-install: ## Install Helm chart with validation (usage: make helm-install [RELEASE=hyperpod-test] [NAMESPACE=default])
+	@RELEASE_NAME="hyperpod-test"; \
+	if [ -n "$(RELEASE)" ]; then \
+		RELEASE_NAME="$(RELEASE)"; \
+	fi; \
+	NAMESPACE_FLAG=""; \
+	if [ -n "$(NAMESPACE)" ]; then \
+		NAMESPACE_FLAG="-n $(NAMESPACE)"; \
+		echo "Installing Helm chart for release: $$$RELEASE_NAME in namespace: $(NAMESPACE)..."; \
+	else \
+		echo "Installing Helm chart for release: $$$RELEASE_NAME in default namespace..."; \
+	fi; \
+	echo "1. Updating chart dependencies..."; \
+	helm dependency update sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/; \
+	echo "2. Linting chart..."; \
+	helm lint sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/; \
+	echo "3. Validating templates..."; \
+	helm template $$RELEASE_NAME sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/ $$$NAMESPACE_FLAG --validate > /dev/null; \
+	echo "4. Installing Helm chart..."; \
+	helm install $$RELEASE_NAME sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/ $$$NAMESPACE_FLAG ; \
+	echo "✓ Helm chart installed successfully for release: $$RELEASE_NAME"
+
+helm-list-releases: ## List Helm releases (usage: make helm-list-releases [NAMESPACE=default])
+	@NAMESPACE_FLAG=""; \
+	if [ -n "$(NAMESPACE)" ]; then \
+		NAMESPACE_FLAG="-n $(NAMESPACE)"; \
+		echo "Listing Helm releases in namespace: $(NAMESPACE)..."; \
+	else \
+		echo "Listing Helm releases in default namespace..."; \
+	fi; \
+	echo "Command: helm list $$$NAMESPACE_FLAG"; \
+	helm list $$$NAMESPACE_FLAG
+
+helm-uninstall: ## Uninstall Helm release (usage: make helm-uninstall RELEASE=hyperpod-release [NAMESPACE=default])
+	@if [ -z "$(RELEASE)" ]; then \
+		echo "Error: RELEASE parameter is required. Usage: make helm-uninstall RELEASE=hyperpod-release [NAMESPACE=default]"; \
+		exit 1; \
+	fi
+	@NAMESPACE_FLAG=""; \
+	if [ -n "$(NAMESPACE)" ]; then \
+		NAMESPACE_FLAG="-n $(NAMESPACE)"; \
+		echo "Uninstalling Helm release: $(RELEASE) from namespace: $(NAMESPACE)..."; \
+	else \
+		echo "Uninstalling Helm release: $(RELEASE) from default namespace..."; \
+	fi;
+	@if helm list -q $$$NAMESPACE_FLAG | grep -q "^$(RELEASE)$$"; then \
+		helm uninstall $(RELEASE) $$$NAMESPACE_FLAG; \
+		echo "✓ Successfully uninstalled release: $(RELEASE)"; \
+	else \
+		echo "Release '$(RELEASE)' not found. Available releases:"; \
+		helm list $$$NAMESPACE_FLAG; \
+	fi
 
 # ECR operations
 list-ecr-repos: ## List ECR repositories that will be created (usage: make list-ecr-repos [REGION=us-east-2] [ACCOUNT_ID=auto])
