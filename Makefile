@@ -1,7 +1,7 @@
 # HyperPod EKS Closed Network Makefile
 # Utility commands for development and deployment
 
-.PHONY: help init plan apply destroy copy-helm-repo clean-helm-repo submodule-update copy-images-to-ecr list-ecr-repos helm-lint helm-template helm-install helm-list-releases helm-uninstall
+.PHONY: help init plan apply destroy submodule-update copy-images-to-ecr list-ecr-repos helm-lint helm-template helm-install helm-list-releases helm-uninstall
 
 # Default target
 help: ## Show this help message
@@ -12,18 +12,6 @@ help: ## Show this help message
 submodule-update: ## Initialize and update git submodules
 	git submodule update --init --recursive
 	git submodule update --remote
-
-# Helm repository setup for local development
-copy-helm-repo: ## Copy sagemaker-hyperpod-cli to /tmp/helm-repo for local development
-	@echo "Copying sagemaker-hyperpod-cli to /tmp/helm-repo..."
-	@rm -rf /tmp/helm-repo
-	@cp -r sagemaker-hyperpod-cli /tmp/helm-repo
-	@echo "✓ Copied sagemaker-hyperpod-cli to /tmp/helm-repo"
-
-clean-helm-repo: ## Remove /tmp/helm-repo directory
-	@echo "Cleaning up /tmp/helm-repo..."
-	@rm -rf /tmp/helm-repo
-	@echo "✓ Removed /tmp/helm-repo"
 
 # Terraform operations (assuming working directory is the terraform module)
 init: ## Initialize Terraform
@@ -117,8 +105,8 @@ setup-ecr-images: copy-images-to-ecr update-values-with-ecr ## Copy images to EC
 	@echo "✓ ECR setup complete - images copied and values.yaml files updated"
 
 # Development utilities
-dev-setup: submodule-update copy-helm-repo ## Setup development environment
+dev-setup: submodule-update ## Setup development environment
 	@echo "✓ Development environment ready"
 
-clean: clean-helm-repo ## Clean up temporary files and directories
+clean: ## Clean up temporary files and directories
 	@echo "✓ Cleanup complete"
