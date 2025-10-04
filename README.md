@@ -158,6 +158,7 @@ For closed network deployments, you'll need to copy required container images to
 - `hyperpod-health-monitoring-agent` - HyperPod Health Monitoring Agent
 - `nvidia-k8s-device-plugin` - NVIDIA Kubernetes Device Plugin
 - `mpi-operator` - MPI Operator for distributed training
+- `kubeflow-training-operator` - Kubeflow Training Operator for PyTorch, TensorFlow, etc.
 
 #### ECR Operations
 
@@ -208,10 +209,11 @@ make setup-ecr-images REGION=us-west-2 ACCOUNT_ID=123456789012
 Edit `tools/ecr-images.conf` to modify which images are copied:
 ```
 # Format: REPO_NAME=SOURCE_IMAGE
-aws-efa-k8s-device-plugin=602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/aws-efa-k8s-device-plugin:v0.4.4
-hyperpod-health-monitoring-agent=763104351884.dkr.ecr.us-west-2.amazonaws.com/sagemaker-hyperpod-health-monitoring-agent:latest
-nvidia-k8s-device-plugin=nvcr.io/nvidia/k8s-device-plugin:v0.14.1
-mpi-operator=mpioperator/mpi-operator:v0.4.0
+aws-efa-k8s-device-plugin=602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/aws-efa-k8s-device-plugin:v0.5.6
+hyperpod-health-monitoring-agent=905418368575.dkr.ecr.us-west-2.amazonaws.com/hyperpod-health-monitoring-agent:1.0.819.0_1.0.267.0
+nvidia-k8s-device-plugin=nvcr.io/nvidia/k8s-device-plugin:v0.16.1
+mpi-operator=mpioperator/mpi-operator:0.5
+kubeflow-training-operator=kubeflow/training-operator:v1-855e096
 ```
 
 ## Infrastructure Deployment
@@ -357,11 +359,7 @@ closed_network = false
 # Configure NAT gateways for outbound internet access
 ```
 
-### Monitoring and Logging
-The solution includes health monitoring capabilities:
-- **Health Monitoring Agent**: Monitors node health and reports to SageMaker
-- **Stress Testing**: Optional stress checks during node provisioning
-- **Connectivity Checks**: Validates network connectivity between nodes
+
 
 ## Development and Customization
 
