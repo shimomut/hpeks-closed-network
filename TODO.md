@@ -1,5 +1,7 @@
+- Remove public subnets / public route tables / route table associations
+
 - Test by actually disabling internet access.
 
-    - Add an option not to create internet gateway / nat gateways, and resources that become unnecessary when internet gateway and nat gateways are not created.
-
 - Check if "endpoint_public_access" can be false
+
+- There is no guarantee EKS subnets are created in the same AZ as the HyperPod subnet. Should explicitly list AZs?

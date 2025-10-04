@@ -103,6 +103,9 @@ def update_ecr_urls(images, region, account_id):
                 elif repo.startswith('mpioperator/'):
                     # Special case for MPI operator
                     image_name = "mpi-operator"
+                elif repo.startswith('kubeflow/'):
+                    # Special case for Kubeflow images
+                    image_name = f"kubeflow-{image_name}"
             else:
                 image_name = repo
             
@@ -304,6 +307,22 @@ def update_values_yaml(values_file, images):
         )
         updated_images.append(f"Health Monitoring Agent: {image_info['full']}")
         print_colored(f"✓ Added health monitoring agent override: {image_info['full']}", Colors.GREEN)
+    
+    # Update kubeflow training operator
+    if 'kubeflow-training-operator' in images:
+        image_info = images['kubeflow-training-operator']
+        config_lines = [
+            "image:",
+            "  repository: " + image_info['repo']
+        ]
+        lines = insert_image_config_in_section(
+            lines, 
+            "trainingOperators", 
+            config_lines,
+            "ECR override for air-gapped environment"
+        )
+        updated_images.append(f"Kubeflow Training Operator: {image_info['full']}")
+        print_colored(f"✓ Added kubeflow training operator override: {image_info['full']}", Colors.GREEN)
     
     # Write the updated content back to file
     with open(values_file, 'w') as f:
