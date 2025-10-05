@@ -1,7 +1,13 @@
 # HyperPod EKS Closed Network Makefile
 # Utility commands for development and deployment
+#
+# Deployment Types:
+# 1. Full Stack Deployment: Creates new VPC, subnets, and all resources (use terraform.tfvars)
+# 2. Two-Phase Deployment: Uses existing VPC/subnets created by infrastructure stack (use terraform-with-existing-vpc.tfvars)
+#    - Phase 1: Deploy infrastructure stack with 'make deploy-infra-stack'
+#    - Phase 2: Deploy HyperPod cluster with 'make deploy-cluster-existing-vpc'
 
-.PHONY: help init plan apply destroy submodule-update copy-images-to-ecr list-ecr-repos helm-lint helm-template helm-install helm-list-releases helm-uninstall infra-init infra-plan infra-apply infra-destroy infra-output infra-tfvars deploy-infra-stack deploy-cluster-existing-vpc destroy-all deploy-e2e-existing-vpc dev-setup clean
+.PHONY: help init plan apply destroy plan-full-stack apply-full-stack plan-existing-vpc apply-existing-vpc submodule-update copy-images-to-ecr list-ecr-repos helm-lint helm-template helm-install helm-list-releases helm-uninstall infra-init infra-plan infra-apply infra-destroy infra-output infra-tfvars deploy-infra-stack deploy-cluster-existing-vpc destroy-all deploy-e2e-existing-vpc clean
 
 # Default target
 help: ## Show this help message
@@ -18,17 +24,49 @@ init: ## Initialize Terraform
 	@echo "Initializing Terraform..."
 	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform init
 
-plan: ## Run Terraform plan
+# Deployment type specific targets
+plan-full-stack: ## Run Terraform plan for full stack deployment (creates new VPC)
+	@echo "Running Terraform plan for full stack deployment..."
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform plan -var-file="terraform.tfvars"
+
+apply-full-stack: ## Apply Terraform configuration for full stack deployment (creates new VPC)
+	@echo "Applying Terraform configuration for full stack deployment..."
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform apply -var-file="terraform.tfvars"
+
+plan-existing-vpc: ## Run Terraform plan for existing VPC deployment (2-phase deployment)
+	@echo "Running Terraform plan for existing VPC deployment..."
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform plan -var-file="terraform-with-existing-vpc.tfvars"
+
+apply-existing-vpc: ## Apply Terraform configuration for existing VPC deployment (2-phase deployment)
+	@echo "Applying Terraform configuration for existing VPC deployment..."
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform apply -var-file="terraform-with-existing-vpc.tfvars"
+
+plan: ## Run Terraform plan (usage: make plan [TFVARS=terraform-with-existing-vpc.tfvars])
 	@echo "Running Terraform plan..."
-	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform plan
+	@TFVARS_FILE="terraform.tfvars"; \
+	if [ -n "$(TFVARS)" ]; then \
+		TFVARS_FILE="$(TFVARS)"; \
+	fi; \
+	echo "Using tfvars file: $$TFVARS_FILE"; \
+	cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform plan -var-file="$$TFVARS_FILE"
 
-apply: ## Apply Terraform configuration
+apply: ## Apply Terraform configuration (usage: make apply [TFVARS=terraform-with-existing-vpc.tfvars])
 	@echo "Applying Terraform configuration..."
-	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform apply
+	@TFVARS_FILE="terraform.tfvars"; \
+	if [ -n "$(TFVARS)" ]; then \
+		TFVARS_FILE="$(TFVARS)"; \
+	fi; \
+	echo "Using tfvars file: $$TFVARS_FILE"; \
+	cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform apply -var-file="$$TFVARS_FILE"
 
-destroy: ## Destroy Terraform infrastructure
+destroy: ## Destroy Terraform infrastructure (usage: make destroy [TFVARS=terraform-with-existing-vpc.tfvars])
 	@echo "Destroying Terraform infrastructure..."
-	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform destroy
+	@TFVARS_FILE="terraform.tfvars"; \
+	if [ -n "$(TFVARS)" ]; then \
+		TFVARS_FILE="$(TFVARS)"; \
+	fi; \
+	echo "Using tfvars file: $$TFVARS_FILE"; \
+	cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform destroy -var-file="$$TFVARS_FILE"
 
 # Helm operations
 helm-lint: ## Lint the Helm chart
@@ -135,7 +173,7 @@ deploy-infra-stack: infra-init infra-apply ## Deploy complete infrastructure sta
 	@echo ""
 	@echo "Next steps:"
 	@echo "1. Run 'make infra-tfvars' to get the configuration snippet"
-	@echo "2. Copy the output to awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/terraform.tfvars"
+	@echo "2. Copy the output to awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/terraform-with-existing-vpc.tfvars"
 	@echo "3. Run 'make deploy-cluster-existing-vpc' to deploy HyperPod with existing infrastructure"
 
 deploy-cluster-existing-vpc: ## Deploy HyperPod cluster using existing infrastructure (run deploy-infra-stack first)
@@ -145,15 +183,15 @@ deploy-cluster-existing-vpc: ## Deploy HyperPod cluster using existing infrastru
 	@echo "✓ Infrastructure stack detected"
 	@echo "Initializing main cluster Terraform..."
 	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform init
-	@echo "Planning main cluster deployment..."
-	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform plan
+	@echo "Planning main cluster deployment with existing VPC configuration..."
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform plan -var-file="terraform-with-existing-vpc.tfvars"
 	@echo "Applying main cluster deployment..."
-	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform apply
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform apply -var-file="terraform-with-existing-vpc.tfvars"
 
 destroy-all: ## Destroy both cluster and infrastructure (in correct order)
 	@echo "Destroying complete deployment..."
 	@echo "1. Destroying HyperPod cluster first..."
-	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform destroy || echo "Cluster already destroyed or not deployed"
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform destroy -var-file="terraform-with-existing-vpc.tfvars" || echo "Cluster already destroyed or not deployed"
 	@echo "2. Destroying infrastructure stack..."
 	@cd existing-vpc-tf && terraform destroy || echo "Infrastructure already destroyed or not deployed"
 	@echo "✓ Complete cleanup finished"

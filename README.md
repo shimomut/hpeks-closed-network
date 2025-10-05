@@ -18,6 +18,13 @@ This project customizes Terraform modules and Helm charts to deploy Amazon SageM
 │   └── steering/           # AI guidance documents
 ├── awsome-distributed-training/  # Submodule (only specific paths modified)
 │   └── 1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/
+│       ├── terraform.tfvars                    # Full stack deployment config
+│       └── terraform-with-existing-vpc.tfvars # Two-phase deployment config
+├── existing-vpc-tf/        # Infrastructure stack for two-phase deployment
+│   ├── main.tf            # VPC, subnets, route tables
+│   ├── variables.tf       # Infrastructure variables
+│   ├── outputs.tf         # Infrastructure outputs
+│   └── terraform.tfvars   # Infrastructure configuration
 ├── sagemaker-hyperpod-cli/ # Submodule (only specific paths modified)
 │   └── helm_chart/HyperPodHelmChart/
 ├── tools/                  # Utility scripts
@@ -29,6 +36,14 @@ This project customizes Terraform modules and Helm charts to deploy Amazon SageM
 ├── LICENSE                # MIT License
 └── README.md             # This file
 ```
+
+#### Configuration File Guide
+
+| File | Purpose | Deployment Type |
+|------|---------|-----------------|
+| `awsome-distributed-training/.../terraform.tfvars` | Full stack deployment | Single-phase |
+| `awsome-distributed-training/.../terraform-with-existing-vpc.tfvars` | Main stack with existing VPC | Two-phase (Phase 2) |
+| `existing-vpc-tf/terraform.tfvars` | Infrastructure stack only | Two-phase (Phase 1) |
 
 ## Getting Started
 
@@ -53,61 +68,207 @@ python3 -m pip install ruamel.yaml
 make dev-setup
 ```
 
+## Deployment Options
+
+This project supports two deployment approaches to accommodate different infrastructure requirements:
+
+### Option 1: Full Stack Deployment (Single Phase)
+Creates all infrastructure components (VPC, subnets, security groups, EKS cluster, HyperPod cluster) in a single deployment.
+
+### Option 2: Two-Phase Deployment (Existing VPC) - Recommended
+
+Separates infrastructure creation into two phases:
+1. **Phase 1**: Deploy foundational infrastructure (VPC, subnets, route tables)
+2. **Phase 2**: Deploy HyperPod cluster using the existing infrastructure
+
+#### Benefits of Two-Phase Deployment:
+
+**Risk Mitigation:**
+- Validate network configurations before deploying expensive compute resources
+- Test connectivity and VPC endpoints separately
+- Isolate infrastructure issues from application deployment issues
+
+**Enterprise Integration:**
+- Aligns with existing VPC management and approval processes
+- Supports separate teams managing networking vs. compute resources
+- Enables compliance with security policies requiring infrastructure review
+
+**Cost Optimization:**
+- Deploy infrastructure once, test multiple HyperPod configurations
+- Avoid recreating VPC/subnets for configuration changes
+- Faster iteration on HyperPod cluster settings
+
+**Operational Benefits:**
+- Cleaner separation of concerns between networking and compute
+- Easier troubleshooting with isolated components
+- Supports GitOps workflows with separate repositories
+
+This approach is ideal for:
+- **Testing and validation**: Test infrastructure configurations separately from compute resources
+- **Enterprise workflows**: Organizations with existing VPC management and approval processes
+- **Risk mitigation**: Validate network configurations before deploying expensive compute resources
+- **Compliance requirements**: Environments requiring separate approval for networking and compute
+- **Troubleshooting**: Isolate infrastructure issues from application deployment issues
+- **Cost optimization**: Deploy infrastructure once, test multiple HyperPod configurations
+
 ## Quick Start Guide
 
-### 1. Configure Your Deployment
-Edit the Terraform configuration file to match your environment:
+### Full Stack Deployment (Option 1)
+
+**1. Configure Your Deployment:**
 ```bash
-# Edit the main configuration file
+# Edit the full stack configuration file
 vim awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/terraform.tfvars
 ```
 
-Key configuration parameters:
-- `resource_name_prefix`: Unique prefix for all resources
-- `aws_region`: Target AWS region (e.g., "us-east-2")
-- `closed_network`: Set to `true` for air-gapped deployments
-- `vpc_cidr`: VPC CIDR block (e.g., "10.192.0.0/16")
-- `kubernetes_version`: EKS cluster version (e.g., "1.32")
-- `instance_groups`: Define your HyperPod compute instances
-
-### 2. Prepare Container Images (Closed Network Only)
-For closed network deployments, copy required container images to your private ECR:
+**2. Prepare Container Images (Closed Network Only):**
 ```bash
 # Copy all required images to ECR and update Helm values
-make setup-ecr-images
-
-# Or with custom region/account
-make setup-ecr-images REGION=us-west-2 ACCOUNT_ID=123456789012
+make setup-ecr-images REGION=us-east-2 ACCOUNT_ID=auto
 ```
 
-### 3. Deploy Infrastructure
+**3. Deploy Infrastructure:**
 ```bash
-# Initialize Terraform
+# Initialize and deploy full stack
 make init
-
-# Review deployment plan
-make plan
-
-# Deploy the infrastructure
-make apply
+make plan-full-stack
+make apply-full-stack
 ```
 
-### 4. Verify Deployment
+### Two-Phase Deployment (Option 2) - Recommended for Testing
+
+**Phase 1: Deploy Infrastructure Stack**
+
+1. **Configure Infrastructure Stack:**
 ```bash
+# Edit infrastructure-only configuration
+vim existing-vpc-tf/terraform.tfvars
+```
+
+Key infrastructure parameters:
+```hcl
+resource_name_prefix = "hpeks-infra-test"
+aws_region           = "us-east-2"
+closed_network       = true                    # No internet gateway/NAT
+vpc_cidr             = "10.192.0.0/16"        # Main VPC CIDR
+hyperpod_private_subnet_cidr = "10.1.0.0/16"  # Large subnet for HyperPod
+eks_private_subnet_cidrs = ["10.192.7.0/24", "10.192.8.0/24"]  # EKS control plane
+eks_private_node_subnet_cidr = "10.192.9.0/24"  # EKS worker nodes
+```
+
+2. **Deploy Infrastructure Stack:**
+```bash
+# Deploy VPC, subnets, and route tables
+make deploy-infra-stack
+```
+
+3. **Get Infrastructure Configuration:**
+```bash
+# Extract infrastructure IDs for main deployment
+make infra-tfvars
+```
+
+**Phase 2: Deploy HyperPod Cluster**
+
+4. **Configure Main Stack:**
+```bash
+# Edit the existing VPC configuration file
+vim awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/terraform-with-existing-vpc.tfvars
+```
+
+The infrastructure stack automatically provides the required configuration. Key settings:
+```hcl
+# Module control - use existing infrastructure
+create_vpc_module = false
+create_private_subnet_module = false
+create_eks_subnets_module = false
+create_security_group_module = true
+
+# Existing infrastructure IDs (auto-populated from Phase 1)
+existing_vpc_id = "vpc-xxxxxxxxx"
+existing_private_subnet_id = "subnet-xxxxxxxxx"
+existing_eks_private_subnet_ids = ["subnet-xxxxxxxxx", "subnet-yyyyyyyyy"]
+# ... other infrastructure IDs
+```
+
+5. **Prepare Container Images (Closed Network Only):**
+```bash
+# Copy images to ECR and update Helm values
+make setup-ecr-images REGION=us-east-2 ACCOUNT_ID=auto
+```
+
+6. **Deploy HyperPod Cluster:**
+```bash
+# Deploy cluster using existing infrastructure
+make deploy-cluster-existing-vpc
+```
+
+**Alternative: Automated Two-Phase Deployment**
+```bash
+# Fully automated deployment (infrastructure + cluster)
+make deploy-e2e-existing-vpc
+```
+
+### Verify Deployment
+```bash
+# Check infrastructure stack status
+make infra-output
+
 # List Helm releases
 make helm-list-releases
 
 # Check EKS cluster status
 aws eks describe-cluster --name <your-cluster-name> --region <your-region>
+
+# Check HyperPod cluster status
+aws sagemaker describe-cluster --cluster-name <hyperpod-cluster-name>
 ```
 
 ## Configuration Guide
 
-### Terraform Configuration
-The main configuration file is located at:
+### Configuration Files
+
+This project uses different configuration files depending on your deployment approach:
+
+**Full Stack Deployment:**
 ```
 awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/terraform.tfvars
 ```
+
+**Two-Phase Deployment:**
+- Infrastructure Stack: `existing-vpc-tf/terraform.tfvars`
+- Main Stack: `awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/terraform-with-existing-vpc.tfvars`
+
+### Infrastructure Stack Configuration (Two-Phase Deployment)
+
+The infrastructure stack (`existing-vpc-tf/terraform.tfvars`) creates the foundational networking components:
+
+**Basic Infrastructure Settings:**
+```hcl
+resource_name_prefix = "hpeks-infra-test"  # Unique prefix for resources
+aws_region           = "us-east-2"         # Target AWS region
+closed_network       = true                # No internet gateway/NAT gateways
+```
+
+**Network Configuration:**
+```hcl
+vpc_cidr = "10.192.0.0/16"                 # Main VPC CIDR block
+
+# HyperPod subnet (large /16 for many instances)
+hyperpod_private_subnet_cidr = "10.1.0.0/16"
+hyperpod_availability_zone_index = 1       # AZ index (0-2)
+
+# EKS control plane subnets (multi-AZ for HA)
+eks_private_subnet_cidrs = ["10.192.7.0/24", "10.192.8.0/24"]
+
+# EKS worker node subnet
+eks_private_node_subnet_cidr = "10.192.9.0/24"
+
+# EKS cluster name (for subnet tagging)
+eks_cluster_name = "hpeks-test-cluster"
+```
+
+### Main Stack Configuration
 
 #### Key Configuration Parameters
 
@@ -118,12 +279,24 @@ aws_region           = "us-east-2"                 # Target AWS region
 closed_network       = true                        # Enable closed network mode
 ```
 
-**Network Configuration:**
+**Module Control (Two-Phase Deployment):**
 ```hcl
-vpc_cidr             = "10.192.0.0/16"    # VPC CIDR block
-public_subnet_1_cidr = "10.192.10.0/24"   # Public subnet 1
-public_subnet_2_cidr = "10.192.11.0/24"   # Public subnet 2
-private_subnet_cidr  = "10.1.0.0/16"      # Private subnet for HyperPod
+# Use existing infrastructure from Phase 1
+create_vpc_module = false
+create_private_subnet_module = false
+create_eks_subnets_module = false
+create_security_group_module = true  # Create security groups only
+```
+
+**Existing Infrastructure IDs (Auto-populated from Phase 1):**
+```hcl
+existing_vpc_id = "vpc-xxxxxxxxx"
+existing_private_subnet_id = "subnet-xxxxxxxxx"
+existing_private_route_table_id = "rtb-xxxxxxxxx"
+existing_eks_private_subnet_ids = ["subnet-xxxxxxxxx", "subnet-yyyyyyyyy"]
+existing_eks_private_node_subnet_id = "subnet-zzzzzzzzz"
+existing_eks_private_node_route_table_id = "rtb-yyyyyyyyy"
+availability_zone_id = "us-east-2b"
 ```
 
 **EKS Configuration:**
@@ -131,7 +304,6 @@ private_subnet_cidr  = "10.1.0.0/16"      # Private subnet for HyperPod
 kubernetes_version           = "1.32"                           # EKS version
 eks_cluster_name             = "eks-closed-8"                   # Cluster name
 eks_availability_zones       = ["use2-az1", "use2-az2"]        # AZ configuration
-eks_private_subnet_cidrs     = ["10.192.7.0/24", "10.192.8.0/24"]  # EKS subnets
 ```
 
 **HyperPod Instance Groups:**
@@ -218,19 +390,52 @@ kubeflow-training-operator=kubeflow/training-operator:v1-855e096
 
 ## Infrastructure Deployment
 
-### Terraform Operations
+### Available Make Commands
+
+**Generic Terraform Operations:**
 ```bash
 # Initialize Terraform
 make init
 
-# Plan deployment (review changes before applying)
+# Plan deployment (defaults to terraform.tfvars)
 make plan
 
-# Apply configuration (deploy infrastructure)
+# Plan with specific configuration file
+make plan TFVARS=terraform-with-existing-vpc.tfvars
+
+# Apply configuration (defaults to terraform.tfvars)
 make apply
 
-# Destroy infrastructure (cleanup)
-make destroy
+# Apply with specific configuration file
+make apply TFVARS=terraform-with-existing-vpc.tfvars
+
+# Destroy infrastructure
+make destroy TFVARS=terraform-with-existing-vpc.tfvars
+```
+
+**Deployment-Specific Commands:**
+```bash
+# Full Stack Deployment
+make plan-full-stack          # Plan full stack (creates new VPC)
+make apply-full-stack         # Deploy full stack
+
+# Two-Phase Deployment
+make plan-existing-vpc        # Plan with existing VPC
+make apply-existing-vpc       # Deploy with existing VPC
+
+# Infrastructure Stack Operations
+make infra-init              # Initialize infrastructure stack
+make infra-plan              # Plan infrastructure stack
+make infra-apply             # Deploy infrastructure stack
+make infra-destroy           # Destroy infrastructure stack
+make infra-output            # Show infrastructure outputs
+make infra-tfvars            # Generate config for main stack
+
+# Combined Workflows
+make deploy-infra-stack      # Deploy complete infrastructure stack
+make deploy-cluster-existing-vpc  # Deploy cluster with existing VPC
+make deploy-e2e-existing-vpc # End-to-end two-phase deployment
+make destroy-all             # Destroy cluster + infrastructure (correct order)
 ```
 
 ### Helm Operations
@@ -254,12 +459,13 @@ make helm-list-releases
 make helm-uninstall RELEASE=hyperpod-dependencies
 ```
 
-## Deployment Workflow
+## Deployment Workflows
 
-### Complete Deployment Process
+### Full Stack Deployment Workflow
+
 1. **Configure your deployment:**
    ```bash
-   # Edit terraform.tfvars with your specific settings
+   # Edit full stack configuration
    vim awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/terraform.tfvars
    ```
 
@@ -271,51 +477,169 @@ make helm-uninstall RELEASE=hyperpod-dependencies
 
 3. **Deploy infrastructure:**
    ```bash
-   # Initialize and deploy
+   # Initialize and deploy full stack
    make init
-   make plan
-   make apply
+   make plan-full-stack
+   make apply-full-stack
    ```
 
-4. **Verify deployment:**
+### Two-Phase Deployment Workflow
+
+**Phase 1: Infrastructure Stack**
+1. **Configure infrastructure:**
    ```bash
-   # Check Helm releases
-   make helm-list-releases
-   
-   # Verify EKS cluster
-   aws eks describe-cluster --name <cluster-name> --region <region>
-   
-   # Check HyperPod cluster status
-   aws sagemaker describe-cluster --cluster-name <hyperpod-cluster-name>
+   # Edit infrastructure stack configuration
+   vim existing-vpc-tf/terraform.tfvars
    ```
+
+2. **Deploy infrastructure:**
+   ```bash
+   # Deploy VPC, subnets, route tables
+   make deploy-infra-stack
+   ```
+
+3. **Extract configuration:**
+   ```bash
+   # Get infrastructure IDs for main stack
+   make infra-tfvars
+   
+   # Copy output to main stack configuration file
+   # (This step is automated in deploy-cluster-existing-vpc)
+   ```
+
+**Phase 2: HyperPod Cluster**
+4. **Configure main stack:**
+   ```bash
+   # Edit existing VPC configuration (infrastructure IDs auto-populated)
+   vim awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/terraform-with-existing-vpc.tfvars
+   ```
+
+5. **Prepare container images (closed network only):**
+   ```bash
+   # Copy images to ECR and update Helm values
+   make setup-ecr-images
+   ```
+
+6. **Deploy HyperPod cluster:**
+   ```bash
+   # Deploy cluster using existing infrastructure
+   make deploy-cluster-existing-vpc
+   ```
+
+**Alternative: Automated Two-Phase Deployment**
+```bash
+# Configure both phases, then run automated deployment
+make deploy-e2e-existing-vpc
+```
+
+### Verification Steps
+```bash
+# Check infrastructure stack (two-phase deployment)
+make infra-output
+
+# Check Helm releases
+make helm-list-releases
+
+# Verify EKS cluster
+aws eks describe-cluster --name <cluster-name> --region <region>
+
+# Check HyperPod cluster status
+aws sagemaker describe-cluster --cluster-name <hyperpod-cluster-name>
+
+# Verify VPC configuration
+aws ec2 describe-vpcs --vpc-ids <vpc-id>
+aws ec2 describe-subnets --filters "Name=vpc-id,Values=<vpc-id>"
+```
+
+### Cleanup Workflows
+
+**Full Stack Cleanup:**
+```bash
+make destroy TFVARS=terraform.tfvars
+```
+
+**Two-Phase Cleanup (Correct Order):**
+```bash
+# Destroy in correct order (cluster first, then infrastructure)
+make destroy-all
+
+# Or manual cleanup:
+make destroy TFVARS=terraform-with-existing-vpc.tfvars  # Destroy cluster first
+make infra-destroy                                      # Destroy infrastructure second
+```
 
 ### Troubleshooting Deployment Issues
 
 **Common Issues and Solutions:**
 
-1. **ECR Authentication Errors:**
+1. **Infrastructure Stack Issues (Two-Phase Deployment):**
+   ```bash
+   # Check infrastructure stack status
+   make infra-output
+   
+   # Verify VPC and subnets were created
+   aws ec2 describe-vpcs --filters "Name=tag:Name,Values=hpeks-infra-test-vpc"
+   aws ec2 describe-subnets --filters "Name=vpc-id,Values=<vpc-id>"
+   
+   # Refresh infrastructure state if needed
+   cd existing-vpc-tf && terraform refresh
+   ```
+
+2. **Configuration Mismatch (Two-Phase Deployment):**
+   ```bash
+   # Regenerate configuration from infrastructure stack
+   make infra-tfvars
+   
+   # Verify infrastructure IDs in main stack configuration
+   grep "existing_" awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/terraform-with-existing-vpc.tfvars
+   ```
+
+3. **CIDR Block Conflicts:**
+   ```bash
+   # Check for CIDR overlaps
+   aws ec2 describe-vpcs --vpc-ids <vpc-id> --query 'Vpcs[0].CidrBlockAssociationSet'
+   
+   # Verify HyperPod subnet CIDR (should be 10.1.0.0/16)
+   aws ec2 describe-subnets --subnet-ids <hyperpod-subnet-id> --query 'Subnets[0].CidrBlock'
+   ```
+
+4. **ECR Authentication Errors:**
    ```bash
    # Re-authenticate with ECR
    aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account>.dkr.ecr.<region>.amazonaws.com
    ```
 
-2. **Terraform State Issues:**
+5. **Terraform State Issues:**
    ```bash
-   # Refresh Terraform state
+   # Refresh Terraform state for main stack
    cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf
-   terraform refresh
+   terraform refresh -var-file="terraform-with-existing-vpc.tfvars"
+   
+   # Refresh infrastructure stack state
+   cd existing-vpc-tf && terraform refresh
    ```
 
-3. **Helm Chart Dependencies:**
+6. **Helm Chart Dependencies:**
    ```bash
    # Update chart dependencies
    helm dependency update sagemaker-hyperpod-cli/helm_chart/HyperPodHelmChart/
    ```
 
-4. **VPC Endpoint Connectivity:**
+7. **VPC Endpoint Connectivity:**
    - Ensure VPC endpoints are created for required AWS services
    - Verify security group rules allow traffic to VPC endpoints
    - Check route table configurations for private subnets
+   - Validate DNS resolution for VPC endpoints
+
+8. **Deployment Order Issues:**
+   ```bash
+   # Always destroy in correct order (cluster first, then infrastructure)
+   make destroy-all
+   
+   # Or manually:
+   make destroy TFVARS=terraform-with-existing-vpc.tfvars  # Cluster first
+   make infra-destroy                                      # Infrastructure second
+   ```
 
 ## Advanced Usage
 
