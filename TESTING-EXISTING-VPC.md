@@ -5,8 +5,8 @@ This document provides a comprehensive testing guide for deploying Amazon SageMa
 ## Overview
 
 This testing scenario demonstrates:
-1. **Phase 1**: Creating VPC, subnets, route tables, and core network resources as a separate stack
-2. **Phase 2**: Creating EKS cluster, HyperPod cluster, S3 bucket, IAM roles, security groups, and remaining cluster-related resources using the existing VPC
+1. **Phase 1**: Creating VPC, subnets (including EKS subnets), route tables, and core network resources as a separate stack
+2. **Phase 2**: Creating EKS cluster, HyperPod cluster, S3 bucket, IAM roles, security groups, and remaining cluster-related resources using the existing VPC and EKS subnets
 
 This approach is common in enterprise environments where network infrastructure is managed separately from application infrastructure.
 
@@ -55,6 +55,7 @@ eks_private_node_subnet_cidr = "10.192.9.0/24"
 # Module Control - ONLY CREATE NETWORK RESOURCES
 create_vpc_module            = true
 create_private_subnet_module = true
+create_eks_subnets_module    = true
 create_eks_module           = false
 create_security_group_module = false
 create_s3_bucket_module     = false
@@ -111,12 +112,25 @@ fi
 PRIVATE_ROUTE_TABLE_ID=$(terraform output -raw private_route_table_id)
 echo "Private Route Table ID: $PRIVATE_ROUTE_TABLE_ID"
 
+# Get EKS Subnet IDs
+EKS_PRIVATE_SUBNET_IDS=$(terraform output -json eks_private_subnet_ids | jq -r '.[]' | tr '\n' ',' | sed 's/,$//')
+echo "EKS Private Subnet IDs: $EKS_PRIVATE_SUBNET_IDS"
+
+EKS_PRIVATE_NODE_SUBNET_ID=$(terraform output -raw eks_private_node_subnet_id)
+echo "EKS Private Node Subnet ID: $EKS_PRIVATE_NODE_SUBNET_ID"
+
+EKS_PRIVATE_NODE_ROUTE_TABLE_ID=$(terraform output -raw eks_private_node_route_table_id)
+echo "EKS Private Node Route Table ID: $EKS_PRIVATE_NODE_ROUTE_TABLE_ID"
+
 # Save outputs to file for Phase 2
 cat > ../network-outputs.env << EOF
 export VPC_ID="$VPC_ID"
 export PRIVATE_SUBNET_ID="$PRIVATE_SUBNET_ID"
 export NAT_GATEWAY_ID="$NAT_GATEWAY_ID"
 export PRIVATE_ROUTE_TABLE_ID="$PRIVATE_ROUTE_TABLE_ID"
+export EKS_PRIVATE_SUBNET_IDS="$EKS_PRIVATE_SUBNET_IDS"
+export EKS_PRIVATE_NODE_SUBNET_ID="$EKS_PRIVATE_NODE_SUBNET_ID"
+export EKS_PRIVATE_NODE_ROUTE_TABLE_ID="$EKS_PRIVATE_NODE_ROUTE_TABLE_ID"
 EOF
 
 echo "Network outputs saved to network-outputs.env"
@@ -128,10 +142,19 @@ echo "Network outputs saved to network-outputs.env"
 # Verify VPC creation
 aws ec2 describe-vpcs --vpc-ids $VPC_ID --region us-east-2
 
-# Verify subnets
+# Verify subnets (including EKS subnets)
 aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --region us-east-2
 
-# Verify route tables
+# Verify EKS subnets specifically
+IFS=',' read -ra SUBNET_ARRAY <<< "$EKS_PRIVATE_SUBNET_IDS"
+for subnet in "${SUBNET_ARRAY[@]}"; do
+    echo "Verifying EKS subnet: $subnet"
+    aws ec2 describe-subnets --subnet-ids "$subnet" --region us-east-2
+done
+
+aws ec2 describe-subnets --subnet-ids "$EKS_PRIVATE_NODE_SUBNET_ID" --region us-east-2
+
+# Verify route tables (including EKS route tables)
 aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$VPC_ID" --region us-east-2
 
 # Check NAT Gateway (if applicable)
@@ -165,10 +188,14 @@ closed_network       = true
 # Use Existing Network Resources
 create_vpc_module            = false
 create_private_subnet_module = false
+create_eks_subnets_module    = false
 existing_vpc_id              = "vpc-xxxxxxxxx"  # Replace with actual VPC ID
 existing_private_subnet_id   = "subnet-xxxxxxxxx"  # Replace with actual subnet ID
 existing_nat_gateway_id      = "nat-xxxxxxxxx"  # Replace with actual NAT Gateway ID (if applicable)
 existing_private_route_table_id = "rtb-xxxxxxxxx"  # Replace with actual route table ID
+existing_eks_private_subnet_ids = ["subnet-xxxxxxxxx", "subnet-yyyyyyyyy"]  # Replace with actual EKS subnet IDs
+existing_eks_private_node_subnet_id = "subnet-zzzzzzzzz"  # Replace with actual EKS node subnet ID
+existing_eks_private_node_route_table_id = "rtb-yyyyyyyyy"  # Replace with actual EKS node route table ID
 
 # Network Configuration (for reference)
 vpc_cidr             = "10.192.0.0/16"
@@ -224,6 +251,14 @@ helm_release_name   = "hyperpod-dependencies"
 sed -i "s/existing_vpc_id.*=.*/existing_vpc_id = \"$VPC_ID\"/" cluster.tfvars
 sed -i "s/existing_private_subnet_id.*=.*/existing_private_subnet_id = \"$PRIVATE_SUBNET_ID\"/" cluster.tfvars
 sed -i "s/existing_private_route_table_id.*=.*/existing_private_route_table_id = \"$PRIVATE_ROUTE_TABLE_ID\"/" cluster.tfvars
+
+# Update EKS subnet configurations
+IFS=',' read -ra SUBNET_ARRAY <<< "$EKS_PRIVATE_SUBNET_IDS"
+SUBNET_LIST=$(printf '"%s",' "${SUBNET_ARRAY[@]}")
+SUBNET_LIST="[${SUBNET_LIST%,}]"
+sed -i "s/existing_eks_private_subnet_ids.*=.*/existing_eks_private_subnet_ids = $SUBNET_LIST/" cluster.tfvars
+sed -i "s/existing_eks_private_node_subnet_id.*=.*/existing_eks_private_node_subnet_id = \"$EKS_PRIVATE_NODE_SUBNET_ID\"/" cluster.tfvars
+sed -i "s/existing_eks_private_node_route_table_id.*=.*/existing_eks_private_node_route_table_id = \"$EKS_PRIVATE_NODE_ROUTE_TABLE_ID\"/" cluster.tfvars
 
 if [ -n "$NAT_GATEWAY_ID" ]; then
     sed -i "s/existing_nat_gateway_id.*=.*/existing_nat_gateway_id = \"$NAT_GATEWAY_ID\"/" cluster.tfvars
@@ -353,15 +388,17 @@ kubectl run test-pod --image=busybox --rm -it --restart=Never -- nslookup ec2.us
 - [ ] VPC created with correct CIDR block
 - [ ] Public subnets created in multiple AZs
 - [ ] Private subnet created for HyperPod
-- [ ] EKS subnets created in multiple AZs
-- [ ] Route tables configured correctly
+- [ ] EKS private subnets created in multiple AZs
+- [ ] EKS private node subnet created
+- [ ] Route tables configured correctly (including EKS node route table)
 - [ ] NAT Gateway created (if not closed network)
 - [ ] Internet Gateway created (if not closed network)
-- [ ] Network outputs captured successfully
+- [ ] Network outputs captured successfully (including EKS subnet IDs)
 
 ### Phase 2 - Cluster Stack
 - [ ] EKS cluster created successfully
-- [ ] EKS cluster uses existing VPC and subnets
+- [ ] EKS cluster uses existing VPC and EKS subnets
+- [ ] EKS cluster references existing EKS private subnets and node subnet
 - [ ] Security groups created with appropriate rules
 - [ ] S3 bucket created for lifecycle scripts
 - [ ] IAM roles created with correct permissions
