@@ -65,7 +65,7 @@ cd <repository-directory>
 python3 -m pip install ruamel.yaml
 
 # Initialize development environment
-make dev-setup
+make submodule-update
 ```
 
 ## Deployment Options

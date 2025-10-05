@@ -220,10 +220,6 @@ deploy-e2e-existing-vpc: ## End-to-end deployment: infrastructure + cluster with
 	@echo "Infrastructure details:"
 	@$(MAKE) infra-output
 
-# Development utilities
-dev-setup: submodule-update ## Setup development environment
-	@echo "✓ Development environment ready"
-
 clean: ## Clean up temporary files and directories
 	@echo "Cleaning up temporary files..."
 	@rm -f existing-vpc-tf/infra-config.tfvars
