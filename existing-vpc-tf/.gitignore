@@ -1,0 +1,16 @@
+# Ignore local Terraform directories
+**/.terraform/*
+
+# Ignore state files and backups
+*.tfstate
+*.tfstate.*
+
+# Ignore plan output files
+*.tfplan
+
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
+
+# Ignore hashes of provider binaries
+.terraform.lock.hcl

@@ -1,7 +1,7 @@
 # HyperPod EKS Closed Network Makefile
 # Utility commands for development and deployment
 
-.PHONY: help init plan apply destroy submodule-update copy-images-to-ecr list-ecr-repos helm-lint helm-template helm-install helm-list-releases helm-uninstall
+.PHONY: help init plan apply destroy submodule-update copy-images-to-ecr list-ecr-repos helm-lint helm-template helm-install helm-list-releases helm-uninstall infra-init infra-plan infra-apply infra-destroy infra-output infra-tfvars deploy-infra-stack deploy-cluster-existing-vpc destroy-all deploy-e2e-existing-vpc dev-setup clean
 
 # Default target
 help: ## Show this help message
@@ -13,7 +13,7 @@ submodule-update: ## Initialize and update git submodules
 	git submodule update --init --recursive
 	git submodule update --remote
 
-# Terraform operations (assuming working directory is the terraform module)
+# Main cluster Terraform operations
 init: ## Initialize Terraform
 	@echo "Initializing Terraform..."
 	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform init
@@ -104,9 +104,90 @@ update-values-with-ecr: ## Update Helm values.yaml files with ECR image referenc
 setup-ecr-images: copy-images-to-ecr update-values-with-ecr ## Copy images to ECR and update values.yaml files (usage: make setup-ecr-images [REGION=us-east-2] [ACCOUNT_ID=auto])
 	@echo "✓ ECR setup complete - images copied and values.yaml files updated"
 
+# Infrastructure stack operations (existing VPC testing)
+infra-init: ## Initialize infrastructure stack Terraform
+	@echo "Initializing infrastructure stack Terraform..."
+	@cd existing-vpc-tf && terraform init
+
+infra-plan: ## Run Terraform plan for infrastructure stack
+	@echo "Running Terraform plan for infrastructure stack..."
+	@cd existing-vpc-tf && terraform plan
+
+infra-apply: ## Apply infrastructure stack Terraform configuration
+	@echo "Applying infrastructure stack Terraform configuration..."
+	@cd existing-vpc-tf && terraform apply
+
+infra-destroy: ## Destroy infrastructure stack
+	@echo "Destroying infrastructure stack..."
+	@cd existing-vpc-tf && terraform destroy
+
+infra-output: ## Show infrastructure stack outputs
+	@echo "Infrastructure stack outputs:"
+	@cd existing-vpc-tf && terraform output
+
+infra-tfvars: ## Generate tfvars snippet for main cluster deployment
+	@echo "=== Copy the following to your main cluster terraform.tfvars ==="
+	@cd existing-vpc-tf && terraform output -raw terraform_tfvars_snippet
+
+# Combined deployment workflow for existing VPC testing
+deploy-infra-stack: infra-init infra-apply ## Deploy complete infrastructure stack
+	@echo "✓ Infrastructure stack deployed successfully"
+	@echo ""
+	@echo "Next steps:"
+	@echo "1. Run 'make infra-tfvars' to get the configuration snippet"
+	@echo "2. Copy the output to awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/terraform.tfvars"
+	@echo "3. Run 'make deploy-cluster-existing-vpc' to deploy HyperPod with existing infrastructure"
+
+deploy-cluster-existing-vpc: ## Deploy HyperPod cluster using existing infrastructure (run deploy-infra-stack first)
+	@echo "Deploying HyperPod cluster with existing infrastructure..."
+	@echo "Checking if infrastructure outputs are available..."
+	@cd existing-vpc-tf && terraform output vpc_id > /dev/null 2>&1 || (echo "❌ Infrastructure stack not deployed. Run 'make deploy-infra-stack' first." && exit 1)
+	@echo "✓ Infrastructure stack detected"
+	@echo "Initializing main cluster Terraform..."
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform init
+	@echo "Planning main cluster deployment..."
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform plan
+	@echo "Applying main cluster deployment..."
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform apply
+
+destroy-all: ## Destroy both cluster and infrastructure (in correct order)
+	@echo "Destroying complete deployment..."
+	@echo "1. Destroying HyperPod cluster first..."
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform destroy || echo "Cluster already destroyed or not deployed"
+	@echo "2. Destroying infrastructure stack..."
+	@cd existing-vpc-tf && terraform destroy || echo "Infrastructure already destroyed or not deployed"
+	@echo "✓ Complete cleanup finished"
+
+# Automated end-to-end deployment for existing VPC testing
+deploy-e2e-existing-vpc: ## End-to-end deployment: infrastructure + cluster with existing VPC setup
+	@echo "Starting end-to-end deployment with existing VPC setup..."
+	@echo ""
+	@echo "Step 1: Deploying infrastructure stack..."
+	@$(MAKE) deploy-infra-stack
+	@echo ""
+	@echo "Step 2: Extracting infrastructure configuration..."
+	@cd existing-vpc-tf && terraform output -raw terraform_tfvars_snippet > infra-config.tfvars
+	@echo "✓ Infrastructure configuration saved to existing-vpc-tf/infra-config.tfvars"
+	@echo ""
+	@echo "Step 3: Updating main cluster configuration..."
+	@echo "# Generated infrastructure configuration" > awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/existing-vpc.auto.tfvars
+	@cd existing-vpc-tf && terraform output -raw terraform_tfvars_snippet >> ../awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/existing-vpc.auto.tfvars
+	@echo "✓ Main cluster configuration updated with infrastructure IDs"
+	@echo ""
+	@echo "Step 4: Deploying HyperPod cluster..."
+	@$(MAKE) deploy-cluster-existing-vpc
+	@echo ""
+	@echo "🎉 End-to-end deployment completed successfully!"
+	@echo ""
+	@echo "Infrastructure details:"
+	@$(MAKE) infra-output
+
 # Development utilities
 dev-setup: submodule-update ## Setup development environment
 	@echo "✓ Development environment ready"
 
 clean: ## Clean up temporary files and directories
+	@echo "Cleaning up temporary files..."
+	@rm -f existing-vpc-tf/infra-config.tfvars
+	@rm -f awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/existing-vpc.auto.tfvars
 	@echo "✓ Cleanup complete"

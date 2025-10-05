@@ -44,7 +44,7 @@ This project customizes Terraform modules and Helm charts to deploy Amazon SageM
 ```bash
 # Clone repository with submodules
 git clone --recursive <repository-url>
-cd hpeks-closed-network
+cd <repository-directory>
 
 # Install Python dependencies for ECR values update script
 python3 -m pip install ruamel.yaml
