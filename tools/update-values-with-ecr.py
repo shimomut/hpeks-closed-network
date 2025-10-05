@@ -317,7 +317,7 @@ def update_values_yaml(values_file, images):
         ]
         lines = insert_image_config_in_section(
             lines, 
-            "trainingOperators", 
+            "training-operators", 
             config_lines,
             "ECR override for air-gapped environment"
         )
