@@ -188,10 +188,28 @@ deploy-cluster-existing-vpc: ## Deploy HyperPod cluster using existing infrastru
 	@echo "Applying main cluster deployment..."
 	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform apply -var-file="terraform-with-existing-vpc.tfvars"
 
+deploy-cluster-existing-vpc-e2e: ## Deploy HyperPod cluster using existing infrastructure with generated config (internal target for e2e)
+	@echo "Deploying HyperPod cluster with existing infrastructure (E2E mode)..."
+	@echo "Checking if infrastructure outputs are available..."
+	@cd existing-vpc-tf && terraform output vpc_id > /dev/null 2>&1 || (echo "❌ Infrastructure stack not deployed. Run 'make deploy-infra-stack' first." && exit 1)
+	@echo "✓ Infrastructure stack detected"
+	@echo "Initializing main cluster Terraform..."
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform init
+	@echo "Planning main cluster deployment with existing VPC configuration..."
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform plan -var-file="terraform-with-existing-vpc.tfvars" -var-file="generated-infra.tfvars"
+	@echo "Applying main cluster deployment..."
+	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform apply -var-file="terraform-with-existing-vpc.tfvars" -var-file="generated-infra.tfvars"
+
 destroy-all: ## Destroy both cluster and infrastructure (in correct order)
 	@echo "Destroying complete deployment..."
 	@echo "1. Destroying HyperPod cluster first..."
-	@cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform destroy -var-file="terraform-with-existing-vpc.tfvars" || echo "Cluster already destroyed or not deployed"
+	@if [ -f awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/generated-infra.tfvars ]; then \
+		echo "Using E2E configuration files..."; \
+		cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform destroy -var-file="terraform-with-existing-vpc.tfvars" -var-file="generated-infra.tfvars" || echo "Cluster already destroyed or not deployed"; \
+	else \
+		echo "Using standard configuration file..."; \
+		cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf && terraform destroy -var-file="terraform-with-existing-vpc.tfvars" || echo "Cluster already destroyed or not deployed"; \
+	fi
 	@echo "2. Destroying infrastructure stack..."
 	@cd existing-vpc-tf && terraform destroy || echo "Infrastructure already destroyed or not deployed"
 	@echo "✓ Complete cleanup finished"
@@ -208,12 +226,12 @@ deploy-e2e-existing-vpc: ## End-to-end deployment: infrastructure + cluster with
 	@echo "✓ Infrastructure configuration saved to existing-vpc-tf/infra-config.tfvars"
 	@echo ""
 	@echo "Step 3: Updating main cluster configuration..."
-	@echo "# Generated infrastructure configuration" > awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/existing-vpc.auto.tfvars
-	@cd existing-vpc-tf && terraform output -raw terraform_tfvars_snippet >> ../awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/existing-vpc.auto.tfvars
-	@echo "✓ Main cluster configuration updated with infrastructure IDs"
+	@echo "# Updating terraform-with-existing-vpc.tfvars with generated infrastructure IDs..."
+	@cd existing-vpc-tf && terraform output -raw terraform_tfvars_snippet > ../awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/generated-infra.tfvars
+	@echo "✓ Generated infrastructure configuration saved"
 	@echo ""
 	@echo "Step 4: Deploying HyperPod cluster..."
-	@$(MAKE) deploy-cluster-existing-vpc
+	@$(MAKE) deploy-cluster-existing-vpc-e2e
 	@echo ""
 	@echo "🎉 End-to-end deployment completed successfully!"
 	@echo ""
@@ -224,4 +242,5 @@ clean: ## Clean up temporary files and directories
 	@echo "Cleaning up temporary files..."
 	@rm -f existing-vpc-tf/infra-config.tfvars
 	@rm -f awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/existing-vpc.auto.tfvars
+	@rm -f awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/generated-infra.tfvars
 	@echo "✓ Cleanup complete"

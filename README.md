@@ -75,7 +75,7 @@ This project supports two deployment approaches to accommodate different infrast
 ### Option 1: Full Stack Deployment (Single Phase)
 Creates all infrastructure components (VPC, subnets, security groups, EKS cluster, HyperPod cluster) in a single deployment.
 
-### Option 2: Two-Phase Deployment (Existing VPC) - Recommended
+### Option 2: Two-Phase Deployment (Existing VPC)
 
 Separates infrastructure creation into two phases:
 1. **Phase 1**: Deploy foundational infrastructure (VPC, subnets, route tables)
@@ -83,33 +83,7 @@ Separates infrastructure creation into two phases:
 
 #### Benefits of Two-Phase Deployment:
 
-**Risk Mitigation:**
-- Validate network configurations before deploying expensive compute resources
-- Test connectivity and VPC endpoints separately
-- Isolate infrastructure issues from application deployment issues
-
-**Enterprise Integration:**
-- Aligns with existing VPC management and approval processes
-- Supports separate teams managing networking vs. compute resources
-- Enables compliance with security policies requiring infrastructure review
-
-**Cost Optimization:**
-- Deploy infrastructure once, test multiple HyperPod configurations
-- Avoid recreating VPC/subnets for configuration changes
-- Faster iteration on HyperPod cluster settings
-
-**Operational Benefits:**
-- Cleaner separation of concerns between networking and compute
-- Easier troubleshooting with isolated components
-- Supports GitOps workflows with separate repositories
-
-This approach is ideal for:
-- **Testing and validation**: Test infrastructure configurations separately from compute resources
-- **Enterprise workflows**: Organizations with existing VPC management and approval processes
-- **Risk mitigation**: Validate network configurations before deploying expensive compute resources
-- **Compliance requirements**: Environments requiring separate approval for networking and compute
-- **Troubleshooting**: Isolate infrastructure issues from application deployment issues
-- **Cost optimization**: Deploy infrastructure once, test multiple HyperPod configurations
+This option is useful when your corporate IT policy requires special settings for network configuration, or when you need to validate infrastructure separately from compute resources.
 
 ## Quick Start Guide
 
