@@ -23,8 +23,13 @@ output "hyperpod_private_route_table_id" {
 }
 
 output "hyperpod_availability_zone" {
-  description = "Availability zone of the HyperPod private subnet"
+  description = "Availability zone name of the HyperPod private subnet"
   value       = aws_subnet.hyperpod_private.availability_zone
+}
+
+output "hyperpod_availability_zone_id" {
+  description = "Availability zone ID of the HyperPod private subnet"
+  value       = var.hyperpod_availability_zone_id
 }
 
 # EKS Infrastructure Outputs
@@ -44,8 +49,23 @@ output "eks_private_node_route_table_id" {
 }
 
 output "eks_availability_zones" {
-  description = "List of availability zones used for EKS subnets"
+  description = "List of availability zones used for EKS private subnets"
   value       = aws_subnet.eks_private[*].availability_zone
+}
+
+output "eks_private_availability_zone_ids" {
+  description = "List of availability zone IDs used for EKS private subnets"
+  value       = var.eks_private_availability_zone_ids
+}
+
+output "eks_private_node_availability_zone" {
+  description = "Availability zone name of the EKS private node subnet"
+  value       = aws_subnet.eks_private_node.availability_zone
+}
+
+output "eks_private_node_availability_zone_id" {
+  description = "Availability zone ID of the EKS private node subnet"
+  value       = var.eks_private_node_availability_zone_id
 }
 
 
@@ -79,6 +99,7 @@ existing_eks_private_node_route_table_id = "${aws_route_table.eks_private_node.i
 ${var.closed_network ? "" : "existing_nat_gateway_id = \"${aws_nat_gateway.main[0].id}\""}
 
 # Availability zone configuration
-availability_zone_id = "${aws_subnet.hyperpod_private.availability_zone}"
+availability_zone_name = "${aws_subnet.hyperpod_private.availability_zone}"
+availability_zone_id = "${var.hyperpod_availability_zone_id}"
 EOT
 }

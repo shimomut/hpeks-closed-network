@@ -21,6 +21,22 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
+# Get the availability zone name from the AZ-ID for HyperPod
+data "aws_availability_zone" "hyperpod_az" {
+  zone_id = var.hyperpod_availability_zone_id
+}
+
+# Get the availability zone names from the AZ-IDs for EKS private subnets
+data "aws_availability_zone" "eks_private_azs" {
+  count   = length(var.eks_private_availability_zone_ids)
+  zone_id = var.eks_private_availability_zone_ids[count.index]
+}
+
+# Get the availability zone name from the AZ-ID for EKS private node subnet
+data "aws_availability_zone" "eks_private_node_az" {
+  zone_id = var.eks_private_node_availability_zone_id
+}
+
 # Create VPC
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
@@ -92,7 +108,7 @@ resource "aws_subnet" "hyperpod_private" {
   
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.hyperpod_private_subnet_cidr
-  availability_zone = data.aws_availability_zones.available.names[var.hyperpod_availability_zone_index]
+  availability_zone = data.aws_availability_zone.hyperpod_az.name
 
   tags = {
     Name = "${var.resource_name_prefix}-hyperpod-private-subnet"
@@ -104,7 +120,7 @@ resource "aws_subnet" "eks_private" {
   count             = length(var.eks_private_subnet_cidrs)
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.eks_private_subnet_cidrs[count.index]
-  availability_zone = data.aws_availability_zones.available.names[count.index]
+  availability_zone = data.aws_availability_zone.eks_private_azs[count.index].name
 
   tags = {
     Name                              = "${var.resource_name_prefix}-eks-private-subnet-${count.index + 1}"
@@ -117,7 +133,7 @@ resource "aws_subnet" "eks_private" {
 resource "aws_subnet" "eks_private_node" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.eks_private_node_subnet_cidr
-  availability_zone = data.aws_availability_zones.available.names[0]
+  availability_zone = data.aws_availability_zone.eks_private_node_az.name
 
   tags = {
     Name                              = "${var.resource_name_prefix}-eks-private-node-subnet"

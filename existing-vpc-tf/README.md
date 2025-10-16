@@ -121,10 +121,32 @@ eks_private_node_subnet_cidr = "10.192.9.0/24"
 
 ### Availability Zones
 
-The stack automatically uses the first available AZs in the region. You can control the HyperPod subnet AZ with:
+You can explicitly specify the availability zones for all subnets using AZ-IDs:
 
 ```hcl
-hyperpod_availability_zone_index = 1  # 0-based index (0, 1, or 2)
+# HyperPod subnet AZ
+hyperpod_availability_zone_id = "use2-az2"
+
+# EKS private subnets AZs (must be at least 2 for multi-AZ)
+eks_private_availability_zone_ids = ["use2-az1", "use2-az3"]
+
+# EKS private node subnet AZ
+eks_private_node_availability_zone_id = "use2-az1"
+```
+
+**Common AZ-IDs by region:**
+- **us-east-2**: use2-az1, use2-az2, use2-az3
+- **us-west-2**: usw2-az1, usw2-az2, usw2-az3, usw2-az4
+- **eu-west-1**: euw1-az1, euw1-az2, euw1-az3
+
+**Best Practices:**
+- Use different AZs for EKS private subnets to ensure high availability
+- Consider using the same AZ for HyperPod and EKS node subnet to minimize cross-AZ traffic
+- Ensure the number of AZ-IDs matches the number of subnet CIDRs
+
+To find available AZ-IDs in your region:
+```bash
+aws ec2 describe-availability-zones --region us-east-2 --query 'AvailabilityZones[*].[ZoneId,ZoneName]' --output table
 ```
 
 ## Cleanup
@@ -142,7 +164,8 @@ terraform destroy
 
 The stack includes validation to ensure:
 - At least 2 EKS private subnets are created
-- Availability zone index is valid (0-2)
+- All availability zone IDs follow the correct format (e.g., 'use2-az2')
+- The number of EKS private AZ-IDs matches the number of subnet CIDRs
 - Proper subnet tagging for EKS integration
 
 ## Next Steps
