@@ -63,9 +63,6 @@ cd <repository-directory>
 
 # Install Python dependencies for ECR values update script
 python3 -m pip install ruamel.yaml
-
-# Initialize development environment
-make submodule-update
 ```
 
 ## Deployment Options
