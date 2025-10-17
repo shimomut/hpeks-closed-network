@@ -639,6 +639,28 @@ instance_groups = {
 }
 ```
 
+### S3 Bucket Configuration for Lifecycle Scripts
+
+HyperPod clusters can use S3 buckets to store lifecycle scripts that run during instance startup. You can configure the deployment to use an existing KMS-encrypted S3 bucket instead of creating a new one.
+
+**Using an Existing KMS-Encrypted S3 Bucket:**
+```hcl
+# Disable S3 bucket creation modules
+create_s3_bucket_module = false
+create_lifecycle_script_module = false
+
+# Specify existing S3 bucket and KMS key
+existing_s3_bucket_name = "sagemaker-cluster-kms-842413447717-us-east-2"
+kms_key_arn = "arn:aws:kms:us-east-2:842413447717:key/32ecc6cb-75f0-4764-b4dd-d0a1ffb0f9ad"
+```
+
+**Configuration Parameters:**
+- `create_s3_bucket_module = false`: Disables creation of a new S3 bucket
+- `create_lifecycle_script_module = false`: Disables upload of default lifecycle scripts
+- `existing_s3_bucket_name`: Name of your existing S3 bucket containing lifecycle scripts
+- `kms_key_arn`: ARN of the KMS key used to encrypt the S3 bucket
+
+
 ### Network Isolation Levels
 Configure different levels of network isolation:
 
