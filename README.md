@@ -95,7 +95,7 @@ vim awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terrafo
 **2. Prepare Container Images (Closed Network Only):**
 ```bash
 # Copy all required images to ECR and update Helm values
-make setup-ecr-images REGION=us-east-2 ACCOUNT_ID=auto
+make setup-ecr-images REGION=us-east-2 ACCOUNT_ID=123456789012
 ```
 
 **3. Deploy Infrastructure:**
@@ -165,7 +165,7 @@ existing_eks_private_subnet_ids = ["subnet-xxxxxxxxx", "subnet-yyyyyyyyy"]
 5. **Prepare Container Images (Closed Network Only):**
 ```bash
 # Copy images to ECR and update Helm values
-make setup-ecr-images REGION=us-east-2 ACCOUNT_ID=auto
+make setup-ecr-images REGION=us-east-2 ACCOUNT_ID=123456789012
 ```
 
 6. **Deploy HyperPod Cluster:**
@@ -307,20 +307,14 @@ For closed network deployments, you'll need to copy required container images to
 
 **Preview ECR repositories:**
 ```bash
-# List repositories that will be created (default: us-east-2)
-make list-ecr-repos
-
-# With custom region/account
-make list-ecr-repos REGION=us-west-2 ACCOUNT_ID=123456789012
+# List repositories that will be created
+make list-ecr-repos REGION=us-east-2 ACCOUNT_ID=123456789012
 ```
 
 **Copy images to ECR:**
 ```bash
-# Copy all images to ECR (default: us-east-2, auto-detect account)
-make copy-images-to-ecr
-
-# With custom parameters
-make copy-images-to-ecr REGION=us-west-2 ACCOUNT_ID=123456789012
+# Copy all images to ECR
+make copy-images-to-ecr REGION=us-east-2 ACCOUNT_ID=123456789012
 ```
 
 The script will:
@@ -332,21 +326,19 @@ The script will:
 
 **Update Helm values with ECR references:**
 ```bash
-# Update values.yaml files with ECR image references (default: us-east-2, auto-detect account)
-make update-values-with-ecr
-
-# With custom parameters
-make update-values-with-ecr REGION=us-west-2 ACCOUNT_ID=123456789012
+# Update values.yaml files with ECR image references
+make update-values-with-ecr REGION=us-east-2 ACCOUNT_ID=123456789012
 ```
 
 **Complete ECR setup (recommended):**
 ```bash
 # Copy images to ECR and update Helm values in one command
-make setup-ecr-images
-
-# With custom parameters
-make setup-ecr-images REGION=us-west-2 ACCOUNT_ID=123456789012
+make setup-ecr-images REGION=us-east-2 ACCOUNT_ID=123456789012
 ```
+
+**Required Parameters:**
+- `REGION`: AWS region where ECR repositories will be created (e.g., us-east-2, us-west-2)
+- `ACCOUNT_ID`: Your AWS account ID (12-digit number)
 
 #### Customizing Images
 Edit `tools/ecr-images.conf` to modify which images are copied:
@@ -443,7 +435,7 @@ make helm-uninstall RELEASE=hyperpod-dependencies
 2. **Prepare container images (closed network only):**
    ```bash
    # Copy images to ECR and update Helm values
-   make setup-ecr-images
+   make setup-ecr-images REGION=us-east-2 ACCOUNT_ID=123456789012
    ```
 
 3. **Deploy infrastructure:**
@@ -488,7 +480,7 @@ make helm-uninstall RELEASE=hyperpod-dependencies
 5. **Prepare container images (closed network only):**
    ```bash
    # Copy images to ECR and update Helm values
-   make setup-ecr-images
+   make setup-ecr-images REGION=us-east-2 ACCOUNT_ID=123456789012
    ```
 
 6. **Deploy HyperPod cluster:**
@@ -580,7 +572,31 @@ make infra-destroy                                      # Destroy infrastructure
    aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account>.dkr.ecr.<region>.amazonaws.com
    ```
 
-5. **Terraform State Issues:**
+5. **ECR Parameter Issues:**
+   ```bash
+   # Ensure both REGION and ACCOUNT_ID are provided
+   make setup-ecr-images REGION=us-east-2 ACCOUNT_ID=123456789012
+   
+   # Get your AWS account ID
+   aws sts get-caller-identity --query Account --output text
+   
+   # Check AWS credentials configuration
+   aws configure list
+   ```
+
+6. **ECR Image Copy Failures:**
+   ```bash
+   # Check Docker daemon status
+   docker info
+   
+   # Verify ECR repository exists
+   aws ecr describe-repositories --region <region> --repository-names <repo-name>
+   
+   # Manual image copy for debugging
+   ./tools/copy-images-to-ecr.sh us-east-2 123456789012
+   ```
+
+7. **Terraform State Issues:**
    ```bash
    # Refresh Terraform state for main stack
    cd awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf

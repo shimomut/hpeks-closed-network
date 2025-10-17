@@ -128,18 +128,33 @@ helm-uninstall: ## Uninstall Helm release (usage: make helm-uninstall [RELEASE=h
 	fi
 
 # ECR operations
-list-ecr-repos: ## List ECR repositories that will be created (usage: make list-ecr-repos [REGION=us-east-2] [ACCOUNT_ID=auto])
+list-ecr-repos: ## List ECR repositories that will be created (usage: make list-ecr-repos REGION=us-east-2 ACCOUNT_ID=123456789012)
+	@if [ -z "$(REGION)" ] || [ -z "$(ACCOUNT_ID)" ]; then \
+		echo "❌ Error: Both REGION and ACCOUNT_ID are required"; \
+		echo "Usage: make list-ecr-repos REGION=us-east-2 ACCOUNT_ID=123456789012"; \
+		exit 1; \
+	fi
 	@./tools/list-ecr-repos.sh $(REGION) $(ACCOUNT_ID)
 
-copy-images-to-ecr: ## Copy container images to ECR repositories (usage: make copy-images-to-ecr [REGION=us-east-2] [ACCOUNT_ID=auto])
+copy-images-to-ecr: ## Copy container images to ECR repositories (usage: make copy-images-to-ecr REGION=us-east-2 ACCOUNT_ID=123456789012)
+	@if [ -z "$(REGION)" ] || [ -z "$(ACCOUNT_ID)" ]; then \
+		echo "❌ Error: Both REGION and ACCOUNT_ID are required"; \
+		echo "Usage: make copy-images-to-ecr REGION=us-east-2 ACCOUNT_ID=123456789012"; \
+		exit 1; \
+	fi
 	@echo "Copying container images to ECR..."
 	@./tools/copy-images-to-ecr.sh $(REGION) $(ACCOUNT_ID)
 
-update-values-with-ecr: ## Update Helm values.yaml files with ECR image references (usage: make update-values-with-ecr [REGION=us-east-2] [ACCOUNT_ID=auto])
+update-values-with-ecr: ## Update Helm values.yaml files with ECR image references (usage: make update-values-with-ecr REGION=us-east-2 ACCOUNT_ID=123456789012)
+	@if [ -z "$(REGION)" ] || [ -z "$(ACCOUNT_ID)" ]; then \
+		echo "❌ Error: Both REGION and ACCOUNT_ID are required"; \
+		echo "Usage: make update-values-with-ecr REGION=us-east-2 ACCOUNT_ID=123456789012"; \
+		exit 1; \
+	fi
 	@echo "Updating Helm values.yaml files with ECR image references..."
 	@./tools/update-values-with-ecr.py $(REGION) $(ACCOUNT_ID)
 
-setup-ecr-images: copy-images-to-ecr update-values-with-ecr ## Copy images to ECR and update values.yaml files (usage: make setup-ecr-images [REGION=us-east-2] [ACCOUNT_ID=auto])
+setup-ecr-images: copy-images-to-ecr update-values-with-ecr ## Copy images to ECR and update values.yaml files (usage: make setup-ecr-images REGION=us-east-2 ACCOUNT_ID=123456789012)
 	@echo "✓ ECR setup complete - images copied and values.yaml files updated"
 
 # Infrastructure stack operations (existing VPC testing)
