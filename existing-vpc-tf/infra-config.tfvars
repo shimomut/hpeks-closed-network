@@ -8,12 +8,12 @@ create_eks_subnets_module = false
 create_security_group_module = true
 
 # Existing infrastructure IDs
-existing_vpc_id = "vpc-0b27524a7c2333566"
-existing_private_subnet_id = "subnet-0c4afd01329935127"
-existing_private_route_table_id = "rtb-0dd8528e03725e717"
-existing_eks_private_subnet_ids = ["subnet-02be75084e30554ec","subnet-0e7833067c6acd99c"]
-existing_eks_private_node_subnet_id = "subnet-0057ef641bf6c5606"
-existing_eks_private_node_route_table_id = "rtb-0a831d3ec242b7e24"
+existing_vpc_id = "vpc-0bcc4dc3b2571ce52"
+existing_private_subnet_id = "subnet-0e816fe15bf4adeac"
+existing_private_route_table_id = "rtb-0b8e139c7938a561d"
+existing_eks_private_subnet_ids = ["subnet-0c0f3a9d1db088213","subnet-087456587028a2c00"]
+existing_eks_private_node_subnet_id = "subnet-016e226cc358a0435"
+existing_eks_private_node_route_table_id = "rtb-0ca999468998f2b9d"
 
 
 # Availability zone configuration
