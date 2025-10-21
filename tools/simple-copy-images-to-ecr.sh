@@ -15,29 +15,15 @@ aws ecr get-login-password --region $REGION | docker login --username AWS --pass
 aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 602401143452.dkr.ecr.us-west-2.amazonaws.com
 aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 905418368575.dkr.ecr.us-west-2.amazonaws.com
 
-# AWS EFA Device Plugin
-echo "Processing aws-efa-k8s-device-plugin..."
-SOURCE_IMAGE="602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/aws-efa-k8s-device-plugin:v0.5.6"
-TARGET_REPO="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/aws-efa-k8s-device-plugin"
+# AWS EFA Device Plugin - SKIPPED
+# This image is available in all AWS regions, no need to copy to private ECR
+# Will use: 602401143452.dkr.ecr.$REGION.amazonaws.com/eks/aws-efa-k8s-device-plugin:v0.5.6
+echo "Skipping aws-efa-k8s-device-plugin (available in all regions)..."
 
-aws ecr create-repository --repository-name aws-efa-k8s-device-plugin --region $REGION
-docker pull --platform linux/amd64 $SOURCE_IMAGE
-docker tag $SOURCE_IMAGE $TARGET_REPO:latest
-docker tag $SOURCE_IMAGE $TARGET_REPO:v0.5.6
-docker push $TARGET_REPO:latest
-docker push $TARGET_REPO:v0.5.6
-
-# HyperPod Health Monitoring Agent
-echo "Processing hyperpod-health-monitoring-agent..."
-SOURCE_IMAGE="905418368575.dkr.ecr.us-west-2.amazonaws.com/hyperpod-health-monitoring-agent:1.0.819.0_1.0.267.0"
-TARGET_REPO="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/hyperpod-health-monitoring-agent"
-
-aws ecr create-repository --repository-name hyperpod-health-monitoring-agent --region $REGION
-docker pull --platform linux/amd64 $SOURCE_IMAGE
-docker tag $SOURCE_IMAGE $TARGET_REPO:latest
-docker tag $SOURCE_IMAGE $TARGET_REPO:1.0.819.0_1.0.267.0
-docker push $TARGET_REPO:latest
-docker push $TARGET_REPO:1.0.819.0_1.0.267.0
+# HyperPod Health Monitoring Agent - SKIPPED
+# This image is available in all AWS regions with region-specific account IDs
+# Will use regional AWS ECR: {account_id}.dkr.ecr.$REGION.amazonaws.com/hyperpod-health-monitoring-agent:1.0.819.0_1.0.267.0
+echo "Skipping hyperpod-health-monitoring-agent (available in all regions with regional account IDs)..."
 
 # NVIDIA Device Plugin
 echo "Processing nvidia-k8s-device-plugin..."

@@ -42,6 +42,27 @@ def get_account_id():
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
 
+def get_hyperpod_health_monitoring_account_id(region):
+    """Get the AWS account ID for hyperpod-health-monitoring-agent based on region"""
+    # Regional account ID mapping from sagemaker-hyperpod-cli/helm_chart/readme.md
+    region_account_mapping = {
+        'us-east-1': '767398015722',
+        'us-west-2': '905418368575', 
+        'us-east-2': '851725546812',
+        'us-west-1': '011528288828',
+        'eu-central-1': '211125453373',
+        'eu-north-1': '654654141839',
+        'eu-west-1': '533267293120',
+        'eu-west-2': '011528288831',
+        'ap-northeast-1': '533267052152',
+        'ap-south-1': '011528288864',
+        'ap-southeast-1': '905418428165',
+        'ap-southeast-2': '851725636348',
+        'sa-east-1': '025066253954'
+    }
+    
+    return region_account_mapping.get(region, '905418368575')  # Default to us-west-2 if region not found
+
 def parse_ecr_config(config_file):
     """Parse ECR configuration file and extract image mappings"""
     if not os.path.exists(config_file):
@@ -75,6 +96,10 @@ def update_ecr_urls(images, region, account_id):
     for key, image_info in images.items():
         repo = image_info['repo']
         tag = image_info['tag']
+        
+        # Skip images that are handled separately (use AWS regional ECR)
+        if key in ['aws-efa-k8s-device-plugin', 'hyperpod-health-monitoring-agent']:
+            continue
         
         # Convert all images to ECR format
         if ecr_pattern.search(repo):
@@ -229,7 +254,7 @@ def insert_image_config_in_section(lines, section_name, config_lines, comment):
     
     return new_lines
 
-def update_values_yaml(values_file, images):
+def update_values_yaml(values_file, images, region):
     """Update the values.yaml file with ECR image overrides"""
     if not os.path.exists(values_file):
         print_colored(f"Error: Values file not found: {values_file}", Colors.RED)
@@ -260,21 +285,20 @@ def update_values_yaml(values_file, images):
         updated_images.append(f"NVIDIA Device Plugin: {image_info['full']}")
         print_colored(f"✓ Added NVIDIA device plugin override: {image_info['full']}", Colors.GREEN)
     
-    # Update AWS EFA device plugin
-    if 'aws-efa-k8s-device-plugin' in images:
-        image_info = images['aws-efa-k8s-device-plugin']
-        config_lines = [
-            "image:",
-            "  repository: " + image_info['repo']
-        ]
-        lines = insert_image_config_in_section(
-            lines, 
-            "aws-efa-k8s-device-plugin", 
-            config_lines,
-            "ECR override for air-gapped environment"
-        )
-        updated_images.append(f"AWS EFA Device Plugin: {image_info['full']}")
-        print_colored(f"✓ Added AWS EFA device plugin override: {image_info['full']}", Colors.GREEN)
+    # Update AWS EFA device plugin - use regional AWS ECR (available in all regions)
+    aws_efa_repo = f"602401143452.dkr.ecr.{region}.amazonaws.com/eks/aws-efa-k8s-device-plugin"
+    config_lines = [
+        "image:",
+        "  repository: " + aws_efa_repo
+    ]
+    lines = insert_image_config_in_section(
+        lines, 
+        "aws-efa-k8s-device-plugin", 
+        config_lines,
+        "Regional AWS ECR (available in all regions)"
+    )
+    updated_images.append(f"AWS EFA Device Plugin: {aws_efa_repo}:v0.5.6")
+    print_colored(f"✓ Added AWS EFA device plugin override: {aws_efa_repo}:v0.5.6", Colors.GREEN)
     
     # Update MPI operator
     if 'mpi-operator' in images:
@@ -293,20 +317,21 @@ def update_values_yaml(values_file, images):
         updated_images.append(f"MPI Operator: {image_info['full']}")
         print_colored(f"✓ Added MPI operator override: {image_info['full']}", Colors.GREEN)
     
-    # Update health monitoring agent
-    if 'hyperpod-health-monitoring-agent' in images:
-        image_info = images['hyperpod-health-monitoring-agent']
-        config_lines = [
-            f'hmaimage: "{image_info["full"]}"'
-        ]
-        lines = insert_image_config_in_section(
-            lines, 
-            "health-monitoring-agent", 
-            config_lines,
-            "ECR override for air-gapped environment"
-        )
-        updated_images.append(f"Health Monitoring Agent: {image_info['full']}")
-        print_colored(f"✓ Added health monitoring agent override: {image_info['full']}", Colors.GREEN)
+    # Update health monitoring agent - use regional AWS ECR (available in all regions with regional account IDs)
+    hma_account_id = get_hyperpod_health_monitoring_account_id(region)
+    hma_repo = f"{hma_account_id}.dkr.ecr.{region}.amazonaws.com/hyperpod-health-monitoring-agent"
+    hma_image = f"{hma_repo}:1.0.819.0_1.0.267.0"
+    config_lines = [
+        f'hmaimage: "{hma_image}"'
+    ]
+    lines = insert_image_config_in_section(
+        lines, 
+        "health-monitoring-agent", 
+        config_lines,
+        "Regional AWS ECR (available in all regions with regional account IDs)"
+    )
+    updated_images.append(f"Health Monitoring Agent: {hma_image}")
+    print_colored(f"✓ Added health monitoring agent override: {hma_image}", Colors.GREEN)
     
     # Update kubeflow training operator
     if 'kubeflow-training-operator' in images:
@@ -424,7 +449,7 @@ Configuration:
     # Update main values.yaml file
     print_colored("Updating main values.yaml file with ECR image overrides...", Colors.BLUE)
     backup_file(main_values_file)
-    updated_images = update_values_yaml(main_values_file, images)
+    updated_images = update_values_yaml(main_values_file, images, args.region)
     
     # Show summary
     show_summary(updated_images, args.region, args.account_id)

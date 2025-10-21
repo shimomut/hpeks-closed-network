@@ -79,6 +79,17 @@ while IFS='=' read -r repo_name source_image; do
     [[ "$repo_name" =~ ^[[:space:]]*# ]] && continue
     [[ -z "$repo_name" ]] && continue
     
+    # Skip images that are available in all regions (no need to copy)
+    if [[ "$repo_name" == "aws-efa-k8s-device-plugin" ]]; then
+        echo "⏭️  Skipping $repo_name (available in all AWS regions)"
+        continue
+    fi
+    
+    if [[ "$repo_name" == "hyperpod-health-monitoring-agent" ]]; then
+        echo "⏭️  Skipping $repo_name (available in all AWS regions with regional account IDs)"
+        continue
+    fi
+    
     # Remove leading/trailing whitespace
     repo_name=$(echo "$repo_name" | xargs)
     source_image=$(echo "$source_image" | xargs)

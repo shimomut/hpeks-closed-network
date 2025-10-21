@@ -21,6 +21,34 @@ echo ""
 
 if [[ -f "$CONFIG_FILE" ]]; then
     echo "🏗️  Repositories that will be created/used:"
+    
+    # First, show skipped images (AWS-managed, available in all regions)
+    echo "  ⏭️  aws-efa-k8s-device-plugin (SKIPPED - available in all AWS regions)"
+    echo "    Will use: 602401143452.dkr.ecr.$REGION.amazonaws.com/eks/aws-efa-k8s-device-plugin:v0.5.6"
+    echo ""
+    
+    # Get the regional account ID for health monitoring agent
+    case "$REGION" in
+        "us-east-1") HMA_ACCOUNT="767398015722" ;;
+        "us-west-2") HMA_ACCOUNT="905418368575" ;;
+        "us-east-2") HMA_ACCOUNT="851725546812" ;;
+        "us-west-1") HMA_ACCOUNT="011528288828" ;;
+        "eu-central-1") HMA_ACCOUNT="211125453373" ;;
+        "eu-north-1") HMA_ACCOUNT="654654141839" ;;
+        "eu-west-1") HMA_ACCOUNT="533267293120" ;;
+        "eu-west-2") HMA_ACCOUNT="011528288831" ;;
+        "ap-northeast-1") HMA_ACCOUNT="533267052152" ;;
+        "ap-south-1") HMA_ACCOUNT="011528288864" ;;
+        "ap-southeast-1") HMA_ACCOUNT="905418428165" ;;
+        "ap-southeast-2") HMA_ACCOUNT="851725636348" ;;
+        "sa-east-1") HMA_ACCOUNT="025066253954" ;;
+        *) HMA_ACCOUNT="905418368575" ;;  # Default to us-west-2
+    esac
+    echo "  ⏭️  hyperpod-health-monitoring-agent (SKIPPED - available in all AWS regions with regional account IDs)"
+    echo "    Will use: $HMA_ACCOUNT.dkr.ecr.$REGION.amazonaws.com/hyperpod-health-monitoring-agent:1.0.819.0_1.0.267.0"
+    echo ""
+    
+    # Now process active (non-commented) images that will be copied
     while IFS='=' read -r repo_name source_image; do
         # Skip comments and empty lines
         [[ "$repo_name" =~ ^[[:space:]]*# ]] && continue
