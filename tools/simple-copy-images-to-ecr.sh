@@ -11,9 +11,8 @@ ACCOUNT_ID=$2
 echo "Logging into ECR..."
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
 
-# Login to source registries
-aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 602401143452.dkr.ecr.us-west-2.amazonaws.com
-aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 905418368575.dkr.ecr.us-west-2.amazonaws.com
+# Note: No need to login to AWS ECR registries for skipped images
+# NVIDIA Container Registry (nvcr.io) allows anonymous access for public images
 
 # AWS EFA Device Plugin - SKIPPED
 # This image is available in all AWS regions, no need to copy to private ECR
