@@ -7,7 +7,7 @@
 #    - Phase 1: Deploy infrastructure stack with 'make deploy-infra-stack'
 #    - Phase 2: Deploy HyperPod cluster with 'make deploy-cluster-existing-vpc'
 
-.PHONY: help init plan apply destroy plan-full-stack apply-full-stack plan-existing-vpc apply-existing-vpc submodule-update copy-images-to-ecr list-ecr-repos helm-lint helm-template helm-install helm-list-releases helm-uninstall infra-init infra-plan infra-apply infra-destroy infra-output infra-tfvars deploy-infra-stack deploy-cluster-existing-vpc destroy-all deploy-e2e-existing-vpc clean
+.PHONY: help init plan apply destroy plan-full-stack apply-full-stack plan-existing-vpc apply-existing-vpc submodule-update copy-images-to-ecr list-ecr-repos helm-lint helm-template helm-install helm-list-releases helm-uninstall infra-init infra-plan infra-apply infra-destroy infra-output infra-tfvars deploy-infra-stack deploy-cluster-existing-vpc destroy-all deploy-e2e-existing-vpc clean verify-connectivity
 
 # Default target
 help: ## Show this help message
@@ -259,3 +259,7 @@ clean: ## Clean up temporary files and directories
 	@rm -f awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/existing-vpc.auto.tfvars
 	@rm -f awsome-distributed-training/1.architectures/7.sagemaker-hyperpod-eks/terraform-modules/hyperpod-eks-tf/generated-infra.tfvars
 	@echo "✓ Cleanup complete"
+
+verify-connectivity: ## Verify network connectivity to AWS service endpoints
+	@echo "Verifying AWS service connectivity..."
+	@python3 tools/verify-aws-connectivity.py

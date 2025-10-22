@@ -65,6 +65,25 @@ cd <repository-directory>
 python3 -m pip install ruamel.yaml
 ```
 
+### Network Connectivity Verification
+
+Before deploying HyperPod in a closed network environment, verify that your network can reach the required AWS service endpoints:
+
+```bash
+# Verify connectivity to AWS service endpoints
+make verify-connectivity
+```
+
+The connectivity verification tests the following AWS service endpoints:
+- **S3**: Object storage for lifecycle scripts and artifacts
+- **ECR**: Container registry for HyperPod images
+- **SSM**: Systems Manager for instance management
+- **EC2**: Compute service APIs
+- **STS**: Security Token Service for authentication
+- **CloudWatch**: Monitoring and logging services
+
+**For closed networks**, ensure VPC endpoints are configured for these services before deployment.
+
 ## Deployment Options
 
 This project supports two deployment approaches to accommodate different infrastructure requirements:
